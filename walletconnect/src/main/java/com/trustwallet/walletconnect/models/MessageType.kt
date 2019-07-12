@@ -1,8 +1,8 @@
 package com.trustwallet.walletconnect.models
 
-import com.squareup.moshi.Json
+import com.google.gson.annotations.SerializedName
 
 enum class MessageType {
-    @Json(name="pub") PUB,
-    @Json(name="sub") SUB
+    @SerializedName("pub") PUB,
+    @SerializedName("sub") SUB
 }

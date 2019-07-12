@@ -14,4 +14,6 @@ interface WCInteractorDelegate {
     fun onEthSign(id: Int, payload: WCEthereumSignPayload)
 
     fun onEthTransaction(id: Int, transaction: WCEthereumTransaction)
+
+    fun onCustomRequest(id: Int, payload: String)
 }

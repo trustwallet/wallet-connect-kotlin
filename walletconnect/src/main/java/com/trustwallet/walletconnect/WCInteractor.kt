@@ -1,16 +1,20 @@
 package com.trustwallet.walletconnect
 
-import com.squareup.moshi.Moshi
-import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
-import com.trustwallet.walletconnect.exceptions.InvalidMessageException
-import com.trustwallet.walletconnect.exceptions.InvalidPayloadException
+import com.github.salomonbrys.kotson.fromJson
+import com.github.salomonbrys.kotson.int
+import com.github.salomonbrys.kotson.obj
+import com.github.salomonbrys.kotson.string
+import com.google.gson.Gson
+import com.google.gson.GsonBuilder
+import com.google.gson.JsonParseException
+import com.google.gson.JsonParser
+import com.trustwallet.walletconnect.exceptions.InvalidJsonRpcRequestException
 import com.trustwallet.walletconnect.extensions.hexStringToByteArray
 import com.trustwallet.walletconnect.jsonrpc.JsonRpcRequest
-import com.trustwallet.walletconnect.models.MessageType
-import com.trustwallet.walletconnect.models.WCEncryptionPayload
-import com.trustwallet.walletconnect.models.WCPeerMeta
-import com.trustwallet.walletconnect.models.WCSocketMessage
+import com.trustwallet.walletconnect.models.*
+import com.trustwallet.walletconnect.models.ethereum.WCEthereumSignPayload
 import com.trustwallet.walletconnect.models.session.WCSession
+import com.trustwallet.walletconnect.models.session.WCSessionUpdateParams
 import com.trustwallet.walletconnect.security.decrypt
 import com.trustwallet.walletconnect.security.encrypt
 import okhttp3.*
@@ -23,13 +27,13 @@ const val JSONRPC_VERSION = "2.0"
 private const val PING_TIMER_PERIOD: Long = 15_000
 
 class WCInteractor (
-    val session: WCSession,
-    val meta: WCPeerMeta,
-    val client: OkHttpClient,
-    val delegate: WCInteractorDelegate
+    private val session: WCSession,
+    private val meta: WCPeerMeta,
+    private val client: OkHttpClient,
+    private val delegate: WCInteractorDelegate
 ): WebSocketListener() {
     private val socket: WebSocket
-    private val moshi: Moshi
+    private val gson: Gson
     private val clientId = UUID.randomUUID().toString()
     private var peerId: String? = null
     private var timer: Timer? = null
@@ -41,40 +45,7 @@ class WCInteractor (
 
         socket = client.newWebSocket(request, this)
 
-        moshi = Moshi.Builder()
-            .add(KotlinJsonAdapterFactory())
-            .build()
-    }
-
-    private fun subscribe(topic: String):Boolean {
-        val message = WCSocketMessage(
-            topic = topic,
-            type = MessageType.SUB,
-            payload = ""
-        )
-        val adapter = moshi.adapter<WCSocketMessage<String>>(WCSocketMessage::class.java)
-        return socket.send(adapter.toJson(message))
-    }
-
-    private fun encryptAndSend(data: ByteArray):Boolean {
-        val message = WCSocketMessage(
-            topic = peerId ?: session.topic,
-            type = MessageType.PUB,
-            payload = encrypt(data, session.key.hexStringToByteArray())
-        )
-        val adapter = moshi.adapter<WCSocketMessage<WCEncryptionPayload>>(WCSocketMessage::class.java)
-        return socket.send(adapter.toJson(message))
-    }
-
-    private fun startPingTimer() {
-        timer = Timer()
-        timer?.schedule(0, PING_TIMER_PERIOD) {
-            socket.send(ByteString.EMPTY)
-        }
-    }
-
-    private fun stopPingTimer() {
-        timer?.cancel()
+        gson = GsonBuilder().create()
     }
 
     override fun onOpen(webSocket: WebSocket, response: Response) {
@@ -84,9 +55,21 @@ class WCInteractor (
     }
 
     override fun onMessage(webSocket: WebSocket, text: String) {
-        val message = WCMessageParser(moshi, text).parse()
+        val message = WCMessageParser(gson, text).parse()
         val payload = String(decrypt(message.payload, session.key.hexStringToByteArray()), Charsets.UTF_8)
-        val adapter = moshi.adapter<JsonRpcRequest<Any>>(JsonRpcRequest::class.java)
+        val obj = JsonParser().parse(payload).obj
+        val id = obj.get("id").int
+        val method = WCMethod.from(obj.get("method").string)
+
+        if (method != null) {
+            try {
+                handleMethod(method, id, payload)
+            } catch (e: Exception) {
+                delegate.onFailure(e)
+            }
+        }
+
+        delegate.onCustomRequest(id, payload)
     }
 
     override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
@@ -106,25 +89,97 @@ class WCInteractor (
     override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
         // Closing event should be ignored for now
     }
+
+    private fun handleMethod(method: WCMethod, id: Int, payload: String) {
+        when (method) {
+            WCMethod.SESSION_REQUEST -> delegate.onSessionRequest(id, getFirstParam(payload))
+            WCMethod.SESSION_UPDATE -> {
+                if (!getFirstParam<WCSessionUpdateParams>(payload).approved) {
+                    disconnect()
+                }
+            }
+            WCMethod.ETH_SIGN -> {
+                val params = getParams<String>(payload)
+                if (params.size < 2)
+                    throw InvalidJsonRpcRequestException()
+                delegate.onEthSign(id, WCEthereumSignPayload(params[1].hexStringToByteArray(), params))
+            }
+            WCMethod.ETH_PERSONAL_SIGN -> {
+                val params = getParams<String>(payload)
+                if (params.size < 2)
+                    throw InvalidJsonRpcRequestException()
+                delegate.onEthSign(id, WCEthereumSignPayload(params[0].hexStringToByteArray(), params))
+            }
+            WCMethod.ETH_SIGN_TYPE_DATA -> {
+                val params = getParams<String>(payload)
+                if (params.size < 2)
+                    throw InvalidJsonRpcRequestException()
+                delegate.onEthSign(id, WCEthereumSignPayload(params[0].toByteArray(Charsets.UTF_8), params))
+            }
+            WCMethod.ETH_SIGN_TRANSACTION -> delegate.onEthTransaction(id, getFirstParam(payload))
+            WCMethod.ETH_SEND_TRANSACTION -> delegate.onEthTransaction(id, getFirstParam(payload))
+        }
+    }
+    
+    private fun subscribe(topic: String):Boolean {
+        val message = WCSocketMessage(
+            topic = topic,
+            type = MessageType.SUB,
+            payload = ""
+        )
+        return socket.send(gson.toJson(message))
+    }
+
+    private fun encryptAndSend(data: ByteArray):Boolean {
+        val message = WCSocketMessage(
+            topic = peerId ?: session.topic,
+            type = MessageType.PUB,
+            payload = encrypt(data, session.key.hexStringToByteArray())
+        )
+        return socket.send(gson.toJson(message))
+    }
+
+
+    private fun disconnect() {
+        socket.close(1000, null)
+    }
+
+    private fun startPingTimer() {
+        timer = Timer()
+        timer?.schedule(0, PING_TIMER_PERIOD) {
+            socket.send(ByteString.EMPTY)
+        }
+    }
+
+    private fun stopPingTimer() {
+        timer?.cancel()
+    }
+
+    private fun <T> getParams(payload: String): Array<T> {
+        return gson.fromJson<JsonRpcRequest<T>>(payload).params
+    }
+
+    private fun <T> getFirstParam(payload: String): T {
+        val params = getParams<T>(payload)
+        if (params.isEmpty())
+            throw InvalidJsonRpcRequestException()
+        return params[0]
+    }
 }
 
-class WCMessageParser(val moshi: Moshi, val text: String) {
+class WCMessageParser(private val gson: Gson, private val text: String) {
     fun parse(): WCSocketMessage<WCEncryptionPayload> {
-        val adapter = moshi.adapter<WCSocketMessage<WCEncryptionPayload>>(WCSocketMessage::class.java)
-        val message = adapter.fromJson(text)
-        if (message != null)
-            return message
+        return try {
+            gson.fromJson(text)
+        } catch (e: JsonParseException) {
+            val message = gson.fromJson<WCSocketMessage<String>>(text)
+            val payload = gson.fromJson<WCEncryptionPayload>(message.payload)
 
-        val stringAdapter = moshi.adapter<WCSocketMessage<String>>(WCSocketMessage::class.java)
-        val payloadAdapter = moshi.adapter<WCEncryptionPayload>(WCEncryptionPayload::class.java)
-
-        val stringMessage = stringAdapter.fromJson(text) ?: throw InvalidMessageException()
-        val payload = payloadAdapter.fromJson(stringMessage.payload) ?: throw InvalidPayloadException()
-
-        return WCSocketMessage(
-            topic = stringMessage.topic,
-            type = stringMessage.type,
-            payload = payload
-        )
+            return WCSocketMessage(
+                topic = message.topic,
+                type = message.type,
+                payload = payload
+            )
+        }
     }
 }

@@ -9,11 +9,11 @@ interface WCInteractorDelegate {
 
     fun onDisconnect(code: Int, reason: String)
 
-    fun onSessionRequest(id: Int, peer: WCPeerMeta)
+    fun onSessionRequest(id: Long, peer: WCPeerMeta)
 
-    fun onEthSign(id: Int, payload: WCEthereumSignPayload)
+    fun onEthSign(id: Long, payload: WCEthereumSignPayload)
 
-    fun onEthTransaction(id: Int, transaction: WCEthereumTransaction)
+    fun onEthTransaction(id: Long, transaction: WCEthereumTransaction)
 
-    fun onCustomRequest(id: Int, payload: String)
+    fun onCustomRequest(id: Long, payload: String)
 }

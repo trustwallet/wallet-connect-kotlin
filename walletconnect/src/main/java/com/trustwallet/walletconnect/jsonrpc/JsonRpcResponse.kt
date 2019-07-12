@@ -4,6 +4,6 @@ import com.trustwallet.walletconnect.JSONRPC_VERSION
 
 data class JsonRpcResponse<T> (
     val jsonrpc: String = JSONRPC_VERSION,
-    val id: Int,
+    val id: Long,
     val result: T
 )

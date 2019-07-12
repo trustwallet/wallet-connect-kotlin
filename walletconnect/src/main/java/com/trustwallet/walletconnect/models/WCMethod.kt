@@ -11,7 +11,7 @@ enum class WCMethod(val method: String) {
 
     companion object {
         fun from(method: String): WCMethod? {
-            for (m in WCMethod.values()) {
+            for (m in values()) {
                 if (m.method == method) {
                     return m
                 }

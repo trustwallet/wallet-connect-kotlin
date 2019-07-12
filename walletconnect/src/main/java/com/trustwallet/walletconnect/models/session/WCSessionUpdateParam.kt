@@ -1,6 +1,6 @@
 package com.trustwallet.walletconnect.models.session
 
-data class WCSessionUpdateParams(
+data class WCSessionUpdateParam(
     val approved: Boolean,
     val chainId: String?,
     val accounts: Array<String>?
@@ -9,7 +9,7 @@ data class WCSessionUpdateParams(
         if (this === other) return true
         if (javaClass != other?.javaClass) return false
 
-        other as WCSessionUpdateParams
+        other as WCSessionUpdateParam
 
         if (approved != other.approved) return false
         if (chainId != other.chainId) return false

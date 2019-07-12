@@ -3,7 +3,7 @@ package com.trustwallet.walletconnect.jsonrpc
 import com.trustwallet.walletconnect.JSONRPC_VERSION
 
 data class JsonRpcRequest<T>(
-    val id: Int,
+    val id: Long,
     val jsonrpc: String = JSONRPC_VERSION,
     val method: String,
     val params: Array<T>
@@ -23,7 +23,7 @@ data class JsonRpcRequest<T>(
     }
 
     override fun hashCode(): Int {
-        var result = id
+        var result = id.hashCode()
         result = 31 * result + jsonrpc.hashCode()
         result = 31 * result + method.hashCode()
         result = 31 * result + params.contentHashCode()

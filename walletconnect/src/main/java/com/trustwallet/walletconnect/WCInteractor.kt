@@ -1,20 +1,22 @@
 package com.trustwallet.walletconnect
 
-import com.github.salomonbrys.kotson.fromJson
-import com.github.salomonbrys.kotson.int
-import com.github.salomonbrys.kotson.obj
-import com.github.salomonbrys.kotson.string
+import com.github.salomonbrys.kotson.*
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonParseException
 import com.google.gson.JsonParser
 import com.trustwallet.walletconnect.exceptions.InvalidJsonRpcRequestException
+import com.trustwallet.walletconnect.exceptions.InvalidSessionException
 import com.trustwallet.walletconnect.extensions.hexStringToByteArray
+import com.trustwallet.walletconnect.jsonrpc.JsonRpcError
 import com.trustwallet.walletconnect.jsonrpc.JsonRpcRequest
+import com.trustwallet.walletconnect.jsonrpc.JsonRpcResponse
 import com.trustwallet.walletconnect.models.*
 import com.trustwallet.walletconnect.models.ethereum.WCEthereumSignPayload
+import com.trustwallet.walletconnect.models.session.WCApproveSessionResponse
 import com.trustwallet.walletconnect.models.session.WCSession
-import com.trustwallet.walletconnect.models.session.WCSessionUpdateParams
+import com.trustwallet.walletconnect.models.session.WCSessionRequestParam
+import com.trustwallet.walletconnect.models.session.WCSessionUpdateParam
 import com.trustwallet.walletconnect.security.decrypt
 import com.trustwallet.walletconnect.security.encrypt
 import okhttp3.*
@@ -28,25 +30,16 @@ private const val PING_TIMER_PERIOD: Long = 15_000
 
 class WCInteractor (
     private val session: WCSession,
-    private val meta: WCPeerMeta,
+    private val clientMeta: WCPeerMeta,
     private val client: OkHttpClient,
     private val delegate: WCInteractorDelegate
 ): WebSocketListener() {
-    private val socket: WebSocket
-    private val gson: Gson
+    private var socket: WebSocket? = null
+    private val gson: Gson = GsonBuilder().create()
     private val clientId = UUID.randomUUID().toString()
     private var peerId: String? = null
     private var timer: Timer? = null
-
-    init {
-        val request = Request.Builder()
-            .url(session.bridge)
-            .build()
-
-        socket = client.newWebSocket(request, this)
-
-        gson = GsonBuilder().create()
-    }
+    private var handshakeId: Long = -1
 
     override fun onOpen(webSocket: WebSocket, response: Response) {
         startPingTimer()
@@ -58,7 +51,7 @@ class WCInteractor (
         val message = WCMessageParser(gson, text).parse()
         val payload = String(decrypt(message.payload, session.key.hexStringToByteArray()), Charsets.UTF_8)
         val obj = JsonParser().parse(payload).obj
-        val id = obj.get("id").int
+        val id = obj.get("id").long
         val method = WCMethod.from(obj.get("method").string)
 
         if (method != null) {
@@ -79,6 +72,7 @@ class WCInteractor (
 
     override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
         stopPingTimer()
+        handshakeId = -1
         delegate.onDisconnect(code, reason)
     }
 
@@ -90,11 +84,96 @@ class WCInteractor (
         // Closing event should be ignored for now
     }
 
-    private fun handleMethod(method: WCMethod, id: Int, payload: String) {
+    fun connect() {
+        val request = Request.Builder()
+            .url(session.bridge)
+            .build()
+
+        socket = client.newWebSocket(request, this)
+    }
+
+    fun approveSesssion(accounts: Array<String>, chainId: Int): Boolean {
+        if (handshakeId <= 0) {
+            throw InvalidSessionException()
+        }
+
+        val result = WCApproveSessionResponse(
+            chainId = chainId,
+            accounts = accounts,
+            peerId = peerId,
+            peerMeta = clientMeta
+        )
+        val response = JsonRpcResponse(
+            id = handshakeId,
+            result = result
+        )
+        return encryptAndSend(gson.toJson(response).toByteArray(Charsets.UTF_8))
+    }
+
+    fun rejectSession(message: String = "Session rejected"): Boolean {
+        if (handshakeId <= 0) {
+            throw InvalidSessionException()
+        }
+
+        val response = JsonRpcResponse(
+            id = handshakeId,
+            result = JsonRpcError(
+                code = -32000,
+                message = message
+            )
+        )
+
+        return encryptAndSend(gson.toJson(response).toByteArray(Charsets.UTF_8))
+    }
+
+    fun killSession(): Boolean {
+        val request = JsonRpcRequest(
+            id = generateId(),
+            method = WCMethod.SESSION_UPDATE.method,
+            params = arrayOf(
+                WCSessionUpdateParam(
+                    approved = false,
+                    chainId = null,
+                    accounts = null
+                )
+            )
+        )
+
+        return encryptAndSend(gson.toJson(request).toByteArray(Charsets.UTF_8))
+                && disconnect()
+    }
+
+    fun <T> approveRequest(id: Long, result: T): Boolean {
+        val response = JsonRpcResponse(
+            id = id,
+            result = result
+        )
+
+        return encryptAndSend(gson.toJson(response).toByteArray(Charsets.UTF_8))
+    }
+
+    fun rejectRequest(id: Long, message: String): Boolean {
+        val response = JsonRpcResponse(
+            id = id,
+            result = JsonRpcError(
+                code = -32000,
+                message = message
+            )
+        )
+
+        return encryptAndSend(gson.toJson(response).toByteArray(Charsets.UTF_8))
+    }
+
+    private fun handleMethod(method: WCMethod, id: Long, payload: String) {
         when (method) {
-            WCMethod.SESSION_REQUEST -> delegate.onSessionRequest(id, getFirstParam(payload))
+            WCMethod.SESSION_REQUEST -> {
+                val param = getFirstParam<WCSessionRequestParam>(payload)
+                handshakeId = id
+                peerId = param.peerId
+                delegate.onSessionRequest(id, getFirstParam(payload))
+            }
             WCMethod.SESSION_UPDATE -> {
-                if (!getFirstParam<WCSessionUpdateParams>(payload).approved) {
+                if (!getFirstParam<WCSessionUpdateParam>(payload).approved) {
                     disconnect()
                 }
             }
@@ -121,33 +200,33 @@ class WCInteractor (
         }
     }
     
-    private fun subscribe(topic: String):Boolean {
+    private fun subscribe(topic: String): Boolean {
         val message = WCSocketMessage(
             topic = topic,
             type = MessageType.SUB,
             payload = ""
         )
-        return socket.send(gson.toJson(message))
+        return socket?.send(gson.toJson(message)) ?: false
     }
 
-    private fun encryptAndSend(data: ByteArray):Boolean {
+    private fun encryptAndSend(data: ByteArray): Boolean {
         val message = WCSocketMessage(
             topic = peerId ?: session.topic,
             type = MessageType.PUB,
             payload = encrypt(data, session.key.hexStringToByteArray())
         )
-        return socket.send(gson.toJson(message))
+        return socket?.send(gson.toJson(message)) ?: false
     }
 
 
-    private fun disconnect() {
-        socket.close(1000, null)
+    private fun disconnect(): Boolean {
+        return socket?.close(1000, null) ?: false
     }
 
     private fun startPingTimer() {
         timer = Timer()
         timer?.schedule(0, PING_TIMER_PERIOD) {
-            socket.send(ByteString.EMPTY)
+            socket?.send(ByteString.EMPTY)
         }
     }
 
@@ -182,4 +261,8 @@ class WCMessageParser(private val gson: Gson, private val text: String) {
             )
         }
     }
+}
+
+private fun generateId(): Long {
+    return Date().time
 }

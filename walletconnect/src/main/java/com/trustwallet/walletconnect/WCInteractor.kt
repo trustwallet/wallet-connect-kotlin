@@ -45,7 +45,6 @@ class WCInteractor (
     var customRequestListener: CustomRequestListener? = null
 
     override fun onOpen(webSocket: WebSocket, response: Response) {
-        startPingTimer()
         subscribe(session.topic)
         subscribe(clientId)
     }
@@ -69,12 +68,10 @@ class WCInteractor (
     }
 
     override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-        stopPingTimer()
         failureListener?.onFailure(t)
     }
 
     override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-        stopPingTimer()
         handshakeId = -1
         disconnectListener?.onDisconnect(code, reason)
     }
@@ -224,17 +221,6 @@ class WCInteractor (
 
     private fun disconnect(): Boolean {
         return socket?.close(1000, null) ?: false
-    }
-
-    private fun startPingTimer() {
-        timer = Timer()
-        timer?.schedule(0, PING_TIMER_PERIOD) {
-            socket?.send(ByteString.EMPTY)
-        }
-    }
-
-    private fun stopPingTimer() {
-        timer?.cancel()
     }
 
     private fun <T> getParams(payload: String): Array<T> {

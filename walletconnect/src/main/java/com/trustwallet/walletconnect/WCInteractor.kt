@@ -1,10 +1,7 @@
 package com.trustwallet.walletconnect
 
 import com.github.salomonbrys.kotson.*
-import com.google.gson.Gson
-import com.google.gson.GsonBuilder
-import com.google.gson.JsonParseException
-import com.google.gson.JsonParser
+import com.google.gson.*
 import com.trustwallet.walletconnect.exceptions.InvalidJsonRpcRequestException
 import com.trustwallet.walletconnect.exceptions.InvalidSessionException
 import com.trustwallet.walletconnect.extensions.hexStringToByteArray
@@ -32,14 +29,20 @@ class WCInteractor (
     private val session: WCSession,
     private val clientMeta: WCPeerMeta,
     private val client: OkHttpClient,
-    private val delegate: WCInteractorDelegate
+    private val gson: Gson = Gson()
 ): WebSocketListener() {
     private var socket: WebSocket? = null
-    private val gson: Gson = GsonBuilder().create()
     private val clientId = UUID.randomUUID().toString()
     private var peerId: String? = null
     private var timer: Timer? = null
     private var handshakeId: Long = -1
+
+    var failureListener: FailureListener? = null
+    var disconnectListener: DisconnectListener? = null
+    var sessionRequestListener: SessionRequestListener? = null
+    var ethSignListener: EthSignListener? = null
+    var ethTransactionListener: EthTransactionListener? = null
+    var customRequestListener: CustomRequestListener? = null
 
     override fun onOpen(webSocket: WebSocket, response: Response) {
         startPingTimer()
@@ -50,30 +53,30 @@ class WCInteractor (
     override fun onMessage(webSocket: WebSocket, text: String) {
         val message = WCMessageParser(gson, text).parse()
         val payload = String(decrypt(message.payload, session.key.hexStringToByteArray()), Charsets.UTF_8)
-        val obj = JsonParser().parse(payload).obj
-        val id = obj.get("id").long
-        val method = WCMethod.from(obj.get("method").string)
+        val helper = WCMessageHelper(payload)
+        val id = helper.id
+        val method = helper.method
 
         if (method != null) {
             try {
                 handleMethod(method, id, payload)
             } catch (e: Exception) {
-                delegate.onFailure(e)
+                failureListener?.onFailure(e)
             }
         }
 
-        delegate.onCustomRequest(id, payload)
+        customRequestListener?.onCustomRequest(id, payload)
     }
 
     override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
         stopPingTimer()
-        delegate.onFailure(t)
+        failureListener?.onFailure(t)
     }
 
     override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
         stopPingTimer()
         handshakeId = -1
-        delegate.onDisconnect(code, reason)
+        disconnectListener?.onDisconnect(code, reason)
     }
 
     override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
@@ -170,7 +173,7 @@ class WCInteractor (
                 val param = getFirstParam<WCSessionRequestParam>(payload)
                 handshakeId = id
                 peerId = param.peerId
-                delegate.onSessionRequest(id, getFirstParam(payload))
+                sessionRequestListener?.onSessionRequest(id, getFirstParam(payload))
             }
             WCMethod.SESSION_UPDATE -> {
                 if (!getFirstParam<WCSessionUpdateParam>(payload).approved) {
@@ -181,22 +184,22 @@ class WCInteractor (
                 val params = getParams<String>(payload)
                 if (params.size < 2)
                     throw InvalidJsonRpcRequestException()
-                delegate.onEthSign(id, WCEthereumSignPayload(params[1].hexStringToByteArray(), params))
+                ethSignListener?.onEthSign(id, WCEthereumSignPayload(params[1].hexStringToByteArray(), params))
             }
             WCMethod.ETH_PERSONAL_SIGN -> {
                 val params = getParams<String>(payload)
                 if (params.size < 2)
                     throw InvalidJsonRpcRequestException()
-                delegate.onEthSign(id, WCEthereumSignPayload(params[0].hexStringToByteArray(), params))
+                ethSignListener?.onEthSign(id, WCEthereumSignPayload(params[0].hexStringToByteArray(), params))
             }
             WCMethod.ETH_SIGN_TYPE_DATA -> {
                 val params = getParams<String>(payload)
                 if (params.size < 2)
                     throw InvalidJsonRpcRequestException()
-                delegate.onEthSign(id, WCEthereumSignPayload(params[0].toByteArray(Charsets.UTF_8), params))
+                ethSignListener?.onEthSign(id, WCEthereumSignPayload(params[0].toByteArray(Charsets.UTF_8), params))
             }
-            WCMethod.ETH_SIGN_TRANSACTION -> delegate.onEthTransaction(id, getFirstParam(payload))
-            WCMethod.ETH_SEND_TRANSACTION -> delegate.onEthTransaction(id, getFirstParam(payload))
+            WCMethod.ETH_SIGN_TRANSACTION -> ethTransactionListener?.onEthTransaction(id, getFirstParam(payload))
+            WCMethod.ETH_SEND_TRANSACTION -> ethTransactionListener?.onEthTransaction(id, getFirstParam(payload))
         }
     }
     
@@ -261,6 +264,17 @@ class WCMessageParser(private val gson: Gson, private val text: String) {
             )
         }
     }
+}
+
+class WCMessageHelper(payload: String) {
+    enum class MetadataKey(val key: String) {
+        ID("id"),
+        METHOD("method"),
+    }
+
+    private val obj = JsonParser().parse(payload).obj
+    val id get() = obj.get(MetadataKey.ID.key).long
+    val method get() = WCMethod.from(obj.get(MetadataKey.METHOD.key).string)
 }
 
 private fun generateId(): Long {

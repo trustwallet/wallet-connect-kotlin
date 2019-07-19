@@ -54,20 +54,18 @@ class WCInteractor (
     override fun onMessage(webSocket: WebSocket, text: String) {
         val message = WCMessageParser(gson, text).parse()
         val payload = String(decrypt(message.payload, session.key.hexStringToByteArray()), Charsets.UTF_8)
-        val helper = WCMessageHelper(payload)
-        val id = helper.id
-        val method = helper.method
+        val request = gson.fromJson<JsonRpcRequest<JsonArray>>(payload, typeToken<JsonRpcRequest<JsonArray>>())
 
-        if (method != null) {
-            try {
-                val request = gson.fromJson<JsonRpcRequest<JsonArray>>(payload, typeToken<JsonRpcRequest<JsonArray>>())
-                handleMethod(method, request)
-            } catch (e: Exception) {
-                onFailure(e)
+        try {
+            val method = request.wcMethod
+            if (method != null) {
+                handleRequest(request)
+            } else {
+                onCustomRequest(request.id, payload)
             }
+        } catch (e: Exception) {
+            onFailure(e)
         }
-
-        onCustomRequest(id, payload)
     }
 
     override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
@@ -167,49 +165,36 @@ class WCInteractor (
         return encryptAndSend(gson.toJson(response).toByteArray(Charsets.UTF_8))
     }
 
-    private fun handleMethod(method: WCMethod, request: JsonRpcRequest<JsonArray>) {
-        when (method) {
+    private fun handleRequest(request: JsonRpcRequest<JsonArray>) {
+        when (request.wcMethod) {
             WCMethod.SESSION_REQUEST -> {
-                val params = gson.fromJson<List<WCSessionRequestParam>>(request.params,
-                        typeToken<List<WCSessionRequestParam>>())
-
-                if (params.isEmpty()) {
-                    throw InvalidJsonRpcRequestException()
-                }
-
+                val param = gson.fromJson<List<WCSessionRequestParam>>(request.params, typeToken<List<WCSessionRequestParam>>())
+                        .firstOrNull() ?: throw InvalidJsonRpcRequestException()
                 handshakeId = request.id
-                peerId = params[0].peerId
-                onSessionRequest(request.id, params[0].peerMeta)
+                peerId = param.peerId
+                onSessionRequest(request.id, param.peerMeta)
             }
             WCMethod.SESSION_UPDATE -> {
-                val params = gson.fromJson<List<WCSessionUpdateParam>>(request.params,
-                        typeToken<List<WCSessionUpdateParam>>())
-
-                if (params.isEmpty()) {
-                    throw InvalidJsonRpcRequestException()
-                }
-
-                if (!params[0].approved) {
+                val param = gson.fromJson<List<WCSessionUpdateParam>>(request.params, typeToken<List<WCSessionUpdateParam>>())
+                        .firstOrNull() ?: throw InvalidJsonRpcRequestException()
+                if (!param.approved) {
                     disconnect()
                 }
             }
             WCMethod.ETH_SIGN -> {
-                val params = gson.fromJson<List<String>>(request.params,
-                        typeToken<List<String>>())
+                val params = gson.fromJson<List<String>>(request.params, typeToken<List<String>>())
                 if (params.size < 2)
                     throw InvalidJsonRpcRequestException()
                 onEthSign(request.id, WCEthereumSignMessage(params, WCEthereumSignMessage.WCMessageType.MESSAGE))
             }
             WCMethod.ETH_PERSONAL_SIGN -> {
-                val params = gson.fromJson<List<String>>(request.params,
-                        typeToken<List<String>>())
+                val params = gson.fromJson<List<String>>(request.params, typeToken<List<String>>())
                 if (params.size < 2)
                     throw InvalidJsonRpcRequestException()
                 onEthSign(request.id, WCEthereumSignMessage(params, WCEthereumSignMessage.WCMessageType.PERSONAL_MESSAGE))
             }
             WCMethod.ETH_SIGN_TYPE_DATA -> {
-                val params = gson.fromJson<List<String>>(request.params,
-                        typeToken<List<String>>())
+                val params = gson.fromJson<List<String>>(request.params, typeToken<List<String>>())
                 if (params.size < 2)
                     throw InvalidJsonRpcRequestException()
                 onEthSign(request.id, WCEthereumSignMessage(params, WCEthereumSignMessage.WCMessageType.TYPED_MESSAGE))
@@ -230,33 +215,18 @@ class WCInteractor (
             }
             WCMethod.BNB_SIGN -> {
                 val cancelOrder = try {
-                    val params = gson.fromJson<List<WCBinanceCancelOrder>>(request.params, typeToken<List<WCBinanceCancelOrder>>())
-                    if (params.isEmpty()) {
-                        throw InvalidJsonRpcRequestException()
-                    }
-                    params[0]
-                } catch (e: JsonParseException) {
-                    null
-                }
+                    gson.fromJson<List<WCBinanceCancelOrder>>(request.params, typeToken<List<WCBinanceCancelOrder>>())
+                            .firstOrNull() ?: throw InvalidJsonRpcRequestException()
+                } catch (e: JsonParseException) { null }
 
                 val tradeOrder = try {
-                    val params = gson.fromJson<List<WCBinanceTradeOrder>>(request.params, typeToken<List<WCBinanceTradeOrder>>())
-                    if (params.isEmpty()) {
-                        throw InvalidJsonRpcRequestException()
-                    }
-                    params[0]
-                } catch (e: JsonParseException) {
-                    null
-                }
+                    gson.fromJson<List<WCBinanceTradeOrder>>(request.params, typeToken<List<WCBinanceTradeOrder>>())
+                            .firstOrNull() ?: throw InvalidJsonRpcRequestException()
+                } catch (e: JsonParseException) { null }
                 val transferOrder = try {
-                    val params = gson.fromJson<List<WCBinanceTransferOrder>>(request.params, typeToken<List<WCBinanceTransferOrder>>())
-                    if (params.isEmpty()) {
-                        throw InvalidJsonRpcRequestException()
-                    }
-                    params[0]
-                } catch (e: JsonParseException) {
-                    null
-                }
+                    gson.fromJson<List<WCBinanceTransferOrder>>(request.params, typeToken<List<WCBinanceTransferOrder>>())
+                            .firstOrNull() ?: throw InvalidJsonRpcRequestException()
+                } catch (e: JsonParseException) { null }
 
                 if (cancelOrder != null) {
                     onBnbCancel(request.id, cancelOrder)
@@ -271,11 +241,9 @@ class WCInteractor (
                 }
             }
             WCMethod.BNB_TRANSACTION_CONFIRM -> {
-                val params = gson.fromJson<List<WCBinanceTxConfirmParam>>(request.params, typeToken<List<WCBinanceTxConfirmParam>>())
-                if (params.isEmpty()) {
-                    throw InvalidJsonRpcRequestException()
-                }
-                onBnbTxConfirm(request.id, params[0])
+                val param = gson.fromJson<List<WCBinanceTxConfirmParam>>(request.params, typeToken<List<WCBinanceTxConfirmParam>>())
+                        .firstOrNull() ?: throw InvalidJsonRpcRequestException()
+                onBnbTxConfirm(request.id, param)
             }
         }
     }

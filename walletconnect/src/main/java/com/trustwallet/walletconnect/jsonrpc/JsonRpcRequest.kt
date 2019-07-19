@@ -6,8 +6,6 @@ import com.trustwallet.walletconnect.models.WCMethod
 data class JsonRpcRequest<T>(
     val id: Long,
     val jsonrpc: String = JSONRPC_VERSION,
-    val method: String,
+    val method: WCMethod?,
     val params: T
-) {
-    val wcMethod:WCMethod? get() = WCMethod.from(method)
-}
+)

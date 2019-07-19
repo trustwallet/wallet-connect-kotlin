@@ -2,15 +2,25 @@ package com.trustwallet.walletconnect.models.ethereum
 
 data class WCEthereumSignMessage (
     val raw: List<String>,
-    val type: WCMessageType
+    val type: WCSignType
 ) {
-    enum class WCMessageType {
+    enum class WCSignType {
         MESSAGE, PERSONAL_MESSAGE, TYPED_MESSAGE
     }
 
+    /**
+     * Raw parameters will always be the message and the addess. Depending on the WCSignType,
+     * those parameters can be swapped as description below:
+     *
+     *  - MESSAGE: `[address, data ]`
+     *  - TYPED_MESSAGE: `[address, data]`
+     *  - PERSONAL_MESSAGE: `[data, address]`
+     *
+     *  reference: https://docs.walletconnect.org/json-rpc/ethereum#eth_signtypeddata
+     */
     val data get() = when (type) {
-        WCMessageType.MESSAGE -> raw[1]
-        WCMessageType.PERSONAL_MESSAGE -> raw[0]
-        WCMessageType.TYPED_MESSAGE -> raw[0]
+        WCSignType.MESSAGE -> raw[1]
+        WCSignType.TYPED_MESSAGE -> raw[1]
+        WCSignType.PERSONAL_MESSAGE -> raw[0]
     }
 }

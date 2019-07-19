@@ -1,7 +1,7 @@
 package com.trustwallet.walletconnect
 
 import com.trustwallet.walletconnect.models.WCPeerMeta
-import com.trustwallet.walletconnect.models.ethereum.WCEthereumSignPayload
+import com.trustwallet.walletconnect.models.ethereum.WCEthereumSignMessage
 import com.trustwallet.walletconnect.models.ethereum.WCEthereumTransaction
 
 interface FailureListener {
@@ -17,7 +17,7 @@ interface SessionRequestListener {
 }
 
 interface EthSignListener {
-    fun onEthSign(id: Long, payload: WCEthereumSignPayload)
+    fun onEthSign(id: Long, message: WCEthereumSignMessage)
 }
 
 interface EthTransactionListener {

@@ -7,7 +7,9 @@ enum class WCMethod(val method: String) {
     ETH_PERSONAL_SIGN("personal_sign"),
     ETH_SIGN_TYPE_DATA("eth_signTypedData"),
     ETH_SIGN_TRANSACTION("eth_signTransaction"),
-    ETH_SEND_TRANSACTION("eth_sendTransaction");
+    ETH_SEND_TRANSACTION("eth_sendTransaction"),
+    BNB_SIGN("bnb_sign"),
+    BNB_TRANSACTION_CONFIRM("bnb_tx_confirmation");
 
     companion object {
         fun from(method: String): WCMethod? {

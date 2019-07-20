@@ -56,7 +56,10 @@ class WCInteractor (
 
     override fun onOpen(webSocket: WebSocket, response: Response) {
         Log.d(TAG, "<< websocket opened >>")
+
+        // The Session.topic channel is used to listen session request messages only.
         subscribe(session.topic)
+        // The clientId channel is used to listen to all messages sent to this client.
         subscribe(clientId)
     }
 
@@ -89,7 +92,7 @@ class WCInteractor (
     }
 
     override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-        // We already have onClosing implementation
+        Log.d(TAG,"<< websocket closed >>")
     }
 
     override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
@@ -97,8 +100,6 @@ class WCInteractor (
     }
 
     override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
-        Log.d(TAG,"<< closing websocket >>")
-
         handshakeId = -1
         onDisconnect(code, reason)
     }
@@ -279,6 +280,8 @@ class WCInteractor (
         Log.d(TAG,"==> message $result")
         val payload = gson.toJson(encrypt(result.toByteArray(Charsets.UTF_8), session.key.hexStringToByteArray()))
         val message = WCSocketMessage(
+            // Once the peerId is defined, all messages must be sent to this channel. The session.topic channel
+            // will be used only to respond the session request message.
             topic = peerId ?: session.topic,
             type = MessageType.PUB,
             payload = payload

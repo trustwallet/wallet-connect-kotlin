@@ -12,7 +12,19 @@ class WCBinanceTradeOrder(
     source: String,
     msgs: List<Message>
 ) : WCBinanceOrder<WCBinanceTradeOrder.Message> (account_number, chain_id, data, memo, sequence, source, msgs) {
-    class Message(
+
+    enum class MessageKey(val key: String) {
+        ID("id"),
+        ORDER_TYPE("ordertype"),
+        PRICE("price"),
+        QUANTITY("quantity"),
+        SENDER("sender"),
+        SIDE("side"),
+        SYMBOL("symbol"),
+        TIME_INFORCE("timeinforce")
+    }
+
+    data class Message(
         val id: String,
         val ordertype: Int,
         val price: Long,
@@ -21,18 +33,18 @@ class WCBinanceTradeOrder(
         val side: Int,
         val symbol: String,
         val timeinforce: Int
-    ): WCBinanceData
+    )
 }
 
 val tradeOrderDeserializer: JsonDeserializer<WCBinanceTradeOrder.Message> = jsonDeserializer {
     WCBinanceTradeOrder.Message(
-        id = it.json["id"].string,
-        ordertype = it.json["ordertype"].int,
-        price = it.json["price"].long,
-        quantity = it.json["quantity"].long,
-        sender = it.json["sender"].string,
-        side = it.json["side"].int,
-        symbol = it.json["symbol"].string,
-        timeinforce = it.json["timeinforce"].int
+        id = it.json[WCBinanceTradeOrder.MessageKey.ID.key].string,
+        ordertype = it.json[WCBinanceTradeOrder.MessageKey.ORDER_TYPE.key].int,
+        price = it.json[WCBinanceTradeOrder.MessageKey.PRICE.key].long,
+        quantity = it.json[WCBinanceTradeOrder.MessageKey.QUANTITY.key].long,
+        sender = it.json[WCBinanceTradeOrder.MessageKey.SENDER.key].string,
+        side = it.json[WCBinanceTradeOrder.MessageKey.SIDE.key].int,
+        symbol = it.json[WCBinanceTradeOrder.MessageKey.SYMBOL.key].string,
+        timeinforce = it.json[WCBinanceTradeOrder.MessageKey.TIME_INFORCE.key].int
     )
 }

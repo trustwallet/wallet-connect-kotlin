@@ -12,17 +12,24 @@ class WCBinanceCancelOrder(
     source: String,
     msgs: List<Message>
 ): WCBinanceOrder<WCBinanceCancelOrder.Message>(account_number, chain_id, data, memo, sequence, source, msgs) {
-    class Message(
+
+    enum class MessageKey(val key: String) {
+        REFID("refid"),
+        SENDER("sender"),
+        SYMBOL("symbol")
+    }
+
+    data class Message(
         val refid: String,
         val sender: String,
         val symbol: String
-    ): WCBinanceData
+    )
 }
 
 val cancelOrderDeserializer: JsonDeserializer<WCBinanceCancelOrder.Message> = jsonDeserializer {
     WCBinanceCancelOrder.Message(
-        refid = it.json["refid"].string,
-        sender = it.json["sender"].string,
-        symbol = it.json["symbol"].string
+        refid = it.json[WCBinanceCancelOrder.MessageKey.REFID.key].string,
+        sender = it.json[WCBinanceCancelOrder.MessageKey.SENDER.key].string,
+        symbol = it.json[WCBinanceCancelOrder.MessageKey.SYMBOL.key].string
     )
 }

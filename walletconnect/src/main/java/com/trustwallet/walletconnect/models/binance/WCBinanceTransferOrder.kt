@@ -12,25 +12,33 @@ class WCBinanceTransferOrder(
     source: String,
     msgs: List<Message>
 ): WCBinanceOrder<WCBinanceTransferOrder.Message>(account_number, chain_id, data, memo, sequence, source, msgs) {
-    class Message(
+
+    enum class MessageKey(val key: String) {
+        INPUTS("inputs"),
+        OUTPUTS("outputs")
+    }
+
+    data class Message(
         val inputs: List<Item>,
         val outputs: List<Item>
-    ): WCBinanceData {
-        class Item(
+    ) {
+
+        data class Item(
             val address: String,
             val coins: List<Coin>
-        ): WCBinanceData {
-            class Coin(
+        ) {
+
+            data class Coin(
                 val amount: Long,
                 val denom: String
-            ): WCBinanceData
+            )
         }
     }
 }
 
 val transferOrderDeserializer: JsonDeserializer<WCBinanceTransferOrder.Message> = jsonDeserializer {
     WCBinanceTransferOrder.Message(
-        inputs = it.context.deserialize(it.json["inputs"].array),
-        outputs = it.context.deserialize(it.json["outputs"].array)
+        inputs = it.context.deserialize(it.json[WCBinanceTransferOrder.MessageKey.INPUTS.key].array),
+        outputs = it.context.deserialize(it.json[WCBinanceTransferOrder.MessageKey.OUTPUTS.key].array)
     )
 }

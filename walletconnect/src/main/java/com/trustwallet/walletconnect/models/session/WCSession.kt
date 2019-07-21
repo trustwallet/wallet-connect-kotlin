@@ -2,7 +2,7 @@ package com.trustwallet.walletconnect.models.session
 
 import android.net.Uri
 
-class WCSession (
+data class WCSession (
     val topic: String,
     val version: String,
     val bridge: String,

@@ -1,11 +1,8 @@
 package com.trustwallet.walletconnect.models
 
-import com.squareup.moshi.JsonClass
-
-@JsonClass(generateAdapter = true)
-class WCPeerMeta (
+data class WCPeerMeta (
     val name: String,
     val url: String,
-    val description: String,
-    val icons: Array<String>
+    val description: String? = null,
+    val icons: List<String> = listOf("")
 )

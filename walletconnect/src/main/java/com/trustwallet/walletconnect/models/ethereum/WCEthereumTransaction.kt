@@ -1,9 +1,6 @@
 package com.trustwallet.walletconnect.models.ethereum
 
-import com.squareup.moshi.JsonClass
-
-@JsonClass(generateAdapter = true)
-class WCEthereumTransaction(
+data class WCEthereumTransaction(
     val from: String,
     val to: String?,
     val nonce: String?,

@@ -1,12 +1,11 @@
 package com.trustwallet.walletconnect.jsonrpc
 
-import com.squareup.moshi.JsonClass
 import com.trustwallet.walletconnect.JSONRPC_VERSION
+import com.trustwallet.walletconnect.models.WCMethod
 
-@JsonClass(generateAdapter = true)
-open class JsonRpcRequest<T>(
-    val id: Int,
+data class JsonRpcRequest<T>(
+    val id: Long,
     val jsonrpc: String = JSONRPC_VERSION,
-    val method: String,
+    val method: WCMethod?,
     val params: T
 )

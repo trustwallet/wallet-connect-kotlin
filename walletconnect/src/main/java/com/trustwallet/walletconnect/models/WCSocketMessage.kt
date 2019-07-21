@@ -1,10 +1,7 @@
 package com.trustwallet.walletconnect.models
 
-import com.squareup.moshi.JsonClass
-
-@JsonClass(generateAdapter = true)
-class WCSocketMessage<T>(
+data class WCSocketMessage(
     val topic: String,
     val type: MessageType,
-    val payload: T
+    val payload: String
 )

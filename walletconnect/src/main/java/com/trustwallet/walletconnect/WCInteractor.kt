@@ -79,7 +79,7 @@ class WCInteractor (
                 onCustomRequest(request.id, payload)
             }
         } catch (e: InvalidJsonRpcParamsException) {
-            invalidParams(request.id)
+            invalidParams(e.requestId)
             onFailure(e)
         } catch (e: Exception) {
             onFailure(e)
@@ -196,14 +196,14 @@ class WCInteractor (
         when (request.method) {
             WCMethod.SESSION_REQUEST -> {
                 val param = gson.fromJson<List<WCSessionRequest>>(request.params)
-                        .firstOrNull() ?: throw InvalidJsonRpcParamsException()
+                        .firstOrNull() ?: throw InvalidJsonRpcParamsException(request.id)
                 handshakeId = request.id
                 peerId = param.peerId
                 onSessionRequest(request.id, param.peerMeta)
             }
             WCMethod.SESSION_UPDATE -> {
                 val param = gson.fromJson<List<WCSessionUpdate>>(request.params)
-                        .firstOrNull() ?: throw InvalidJsonRpcParamsException()
+                        .firstOrNull() ?: throw InvalidJsonRpcParamsException(request.id)
                 if (!param.approved) {
                     disconnect()
                 }
@@ -211,53 +211,53 @@ class WCInteractor (
             WCMethod.ETH_SIGN -> {
                 val params = gson.fromJson<List<String>>(request.params)
                 if (params.size < 2)
-                    throw InvalidJsonRpcParamsException()
+                    throw InvalidJsonRpcParamsException(request.id)
                 onEthSign(request.id, WCEthereumSignMessage(params, WCEthereumSignMessage.WCSignType.MESSAGE))
             }
             WCMethod.ETH_PERSONAL_SIGN -> {
                 val params = gson.fromJson<List<String>>(request.params)
                 if (params.size < 2)
-                    throw InvalidJsonRpcParamsException()
+                    throw InvalidJsonRpcParamsException(request.id)
                 onEthSign(request.id, WCEthereumSignMessage(params, WCEthereumSignMessage.WCSignType.PERSONAL_MESSAGE))
             }
             WCMethod.ETH_SIGN_TYPE_DATA -> {
                 val params = gson.fromJson<List<String>>(request.params)
                 if (params.size < 2)
-                    throw InvalidJsonRpcParamsException()
+                    throw InvalidJsonRpcParamsException(request.id)
                 onEthSign(request.id, WCEthereumSignMessage(params, WCEthereumSignMessage.WCSignType.TYPED_MESSAGE))
             }
             WCMethod.ETH_SIGN_TRANSACTION -> {
                 val param = gson.fromJson<List<WCEthereumTransaction>>(request.params)
-                        .firstOrNull() ?: throw InvalidJsonRpcParamsException()
+                        .firstOrNull() ?: throw InvalidJsonRpcParamsException(request.id)
                 onEthTransaction(request.id, param)
             }
             WCMethod.ETH_SEND_TRANSACTION ->{
                 val param = gson.fromJson<List<WCEthereumTransaction>>(request.params)
-                        .firstOrNull() ?: throw InvalidJsonRpcParamsException()
+                        .firstOrNull() ?: throw InvalidJsonRpcParamsException(request.id)
                 onEthTransaction(request.id, param)
             }
             WCMethod.BNB_SIGN -> {
                 try {
                     val order = gson.fromJson<List<WCBinanceCancelOrder>>(request.params)
-                            .firstOrNull() ?: throw InvalidJsonRpcParamsException()
+                            .firstOrNull() ?: throw InvalidJsonRpcParamsException(request.id)
                     onBnbCancel(request.id, order)
                 } catch (e: NoSuchElementException) { }
 
                 try {
                     val order = gson.fromJson<List<WCBinanceTradeOrder>>(request.params)
-                            .firstOrNull() ?: throw InvalidJsonRpcParamsException()
+                            .firstOrNull() ?: throw InvalidJsonRpcParamsException(request.id)
                     onBnbTrade(request.id, order)
                 } catch (e: NoSuchElementException) {  }
 
                 try {
                     val order = gson.fromJson<List<WCBinanceTransferOrder>>(request.params)
-                            .firstOrNull() ?: throw InvalidJsonRpcParamsException()
+                            .firstOrNull() ?: throw InvalidJsonRpcParamsException(request.id)
                     onBnbTransfer(request.id, order)
                 } catch (e: NoSuchElementException) { }
             }
             WCMethod.BNB_TRANSACTION_CONFIRM -> {
                 val param = gson.fromJson<List<WCBinanceTxConfirmParam>>(request.params)
-                        .firstOrNull() ?: throw InvalidJsonRpcParamsException()
+                        .firstOrNull() ?: throw InvalidJsonRpcParamsException(request.id)
                 onBnbTxConfirm(request.id, param)
             }
         }

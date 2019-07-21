@@ -64,15 +64,14 @@ class WCInteractor (
     }
 
     override fun onMessage(webSocket: WebSocket, text: String) {
-        Log.d(TAG, "<== message $text")
-        val message = gson.fromJson<WCSocketMessage>(text)
-        val encrypted = gson.fromJson<WCEncryptionPayload>(message.payload)
-        val payload = String(decrypt(encrypted, session.key.hexStringToByteArray()), Charsets.UTF_8)
-        Log.d(TAG, "<== decrypted $payload")
-
-        val request = gson.fromJson<JsonRpcRequest<JsonArray>>(payload, typeToken<JsonRpcRequest<JsonArray>>())
-
         try {
+            Log.d(TAG, "<== message $text")
+            val message = gson.fromJson<WCSocketMessage>(text)
+            val encrypted = gson.fromJson<WCEncryptionPayload>(message.payload)
+            val payload = String(decrypt(encrypted, session.key.hexStringToByteArray()), Charsets.UTF_8)
+            Log.d(TAG, "<== decrypted $payload")
+
+            val request = gson.fromJson<JsonRpcRequest<JsonArray>>(payload, typeToken<JsonRpcRequest<JsonArray>>())
             val method = request.method
             if (method != null) {
                 handleRequest(request)

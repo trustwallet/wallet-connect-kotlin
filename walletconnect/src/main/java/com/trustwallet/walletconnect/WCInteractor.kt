@@ -102,6 +102,7 @@ class WCInteractor (
 
     override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
         handshakeId = -1
+        peerId = null
         onDisconnect(code, reason)
     }
 

@@ -28,5 +28,11 @@ enum class WCMethod {
     BNB_SIGN,
 
     @SerializedName("bnb_tx_confirmation")
-    BNB_TRANSACTION_CONFIRM;
+    BNB_TRANSACTION_CONFIRM,
+
+    @SerializedName("get_accounts")
+    GET_ACCOUNTS,
+
+    @SerializedName("trust_signTransaction")
+    SIGN_TRANSACTION;
 }

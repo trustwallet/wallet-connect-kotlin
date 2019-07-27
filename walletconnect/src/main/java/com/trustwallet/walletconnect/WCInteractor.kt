@@ -53,6 +53,8 @@ class WCInteractor (
     var onBnbCancel: (id: Long, order: WCBinanceCancelOrder) -> Unit = { _, _ -> Unit }
     var onBnbTransfer: (id: Long, order: WCBinanceTransferOrder) -> Unit = { _, _ -> Unit }
     var onBnbTxConfirm: (id: Long, order: WCBinanceTxConfirmParam) -> Unit = { _, _ -> Unit }
+    var onGetAccounts: (id: Long) -> Unit = { _ -> Unit }
+    var onSignTransaction: (id: Long, transaction: WCSignTransaction) -> Unit = {_, _ -> Unit }
 
     override fun onOpen(webSocket: WebSocket, response: Response) {
         Log.d(TAG, "<< websocket opened >>")
@@ -100,6 +102,7 @@ class WCInteractor (
 
     override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
         handshakeId = -1
+        peerId = null
         onDisconnect(code, reason)
     }
 
@@ -259,6 +262,14 @@ class WCInteractor (
                 val param = gson.fromJson<List<WCBinanceTxConfirmParam>>(request.params)
                         .firstOrNull() ?: throw InvalidJsonRpcParamsException(request.id)
                 onBnbTxConfirm(request.id, param)
+            }
+            WCMethod.GET_ACCOUNTS -> {
+                onGetAccounts(request.id)
+            }
+            WCMethod.SIGN_TRANSACTION -> {
+                val param = gson.fromJson<List<WCSignTransaction>>(request.params)
+                    .firstOrNull() ?: throw InvalidJsonRpcParamsException(request.id)
+                onSignTransaction(request.id, param)
             }
         }
     }

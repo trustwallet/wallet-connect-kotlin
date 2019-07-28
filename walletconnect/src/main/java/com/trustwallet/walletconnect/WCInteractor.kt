@@ -33,6 +33,7 @@ class WCInteractor (
     private val TAG = "WCInteractor"
 
     private val gson = builder
+        .serializeNulls()
         .registerTypeAdapter(cancelOrderSerializer)
         .registerTypeAdapter(cancelOrderDeserializer)
         .registerTypeAdapter(tradeOrderSerializer)

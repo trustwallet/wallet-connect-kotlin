@@ -1,7 +1,7 @@
 package com.trustwallet.walletconnect.models.binance
 
 import com.github.salomonbrys.kotson.*
-import com.google.gson.JsonDeserializer
+import com.google.gson.JsonObject
 
 class WCBinanceTradeOrder(
     account_number: String,
@@ -26,25 +26,39 @@ class WCBinanceTradeOrder(
 
     data class Message(
         val id: String,
-        val ordertype: Int,
+        val orderType: Int,
         val price: Long,
         val quantity: Long,
         val sender: String,
         val side: Int,
         val symbol: String,
-        val timeinforce: Int
+        val timeInforce: Int
     )
 }
 
-val tradeOrderDeserializer: JsonDeserializer<WCBinanceTradeOrder.Message> = jsonDeserializer {
+val tradeOrderDeserializer = jsonDeserializer {
     WCBinanceTradeOrder.Message(
         id = it.json[WCBinanceTradeOrder.MessageKey.ID.key].string,
-        ordertype = it.json[WCBinanceTradeOrder.MessageKey.ORDER_TYPE.key].int,
+        orderType = it.json[WCBinanceTradeOrder.MessageKey.ORDER_TYPE.key].int,
         price = it.json[WCBinanceTradeOrder.MessageKey.PRICE.key].long,
         quantity = it.json[WCBinanceTradeOrder.MessageKey.QUANTITY.key].long,
         sender = it.json[WCBinanceTradeOrder.MessageKey.SENDER.key].string,
         side = it.json[WCBinanceTradeOrder.MessageKey.SIDE.key].int,
         symbol = it.json[WCBinanceTradeOrder.MessageKey.SYMBOL.key].string,
-        timeinforce = it.json[WCBinanceTradeOrder.MessageKey.TIME_INFORCE.key].int
+        timeInforce = it.json[WCBinanceTradeOrder.MessageKey.TIME_INFORCE.key].int
     )
+}
+
+val tradeOrderSerializer = jsonSerializer<WCBinanceTradeOrder.Message> {
+    val jsonObject = JsonObject()
+    jsonObject.addProperty(WCBinanceTradeOrder.MessageKey.ID.key, it.src.id)
+    jsonObject.addProperty(WCBinanceTradeOrder.MessageKey.ORDER_TYPE.key, it.src.orderType)
+    jsonObject.addProperty(WCBinanceTradeOrder.MessageKey.PRICE.key, it.src.price)
+    jsonObject.addProperty(WCBinanceTradeOrder.MessageKey.QUANTITY.key, it.src.quantity)
+    jsonObject.addProperty(WCBinanceTradeOrder.MessageKey.SENDER.key, it.src.sender)
+    jsonObject.addProperty(WCBinanceTradeOrder.MessageKey.SIDE.key, it.src.side)
+    jsonObject.addProperty(WCBinanceTradeOrder.MessageKey.SYMBOL.key, it.src.symbol)
+    jsonObject.addProperty(WCBinanceTradeOrder.MessageKey.TIME_INFORCE.key, it.src.timeInforce)
+
+    jsonObject
 }

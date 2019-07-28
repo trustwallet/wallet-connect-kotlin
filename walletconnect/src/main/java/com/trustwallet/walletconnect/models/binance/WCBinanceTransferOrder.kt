@@ -1,7 +1,7 @@
 package com.trustwallet.walletconnect.models.binance
 
 import com.github.salomonbrys.kotson.*
-import com.google.gson.JsonDeserializer
+import com.google.gson.JsonObject
 
 class WCBinanceTransferOrder(
     account_number: String,
@@ -36,9 +36,16 @@ class WCBinanceTransferOrder(
     }
 }
 
-val transferOrderDeserializer: JsonDeserializer<WCBinanceTransferOrder.Message> = jsonDeserializer {
+val transferOrderDeserializer = jsonDeserializer {
     WCBinanceTransferOrder.Message(
         inputs = it.context.deserialize(it.json[WCBinanceTransferOrder.MessageKey.INPUTS.key].array),
         outputs = it.context.deserialize(it.json[WCBinanceTransferOrder.MessageKey.OUTPUTS.key].array)
     )
+}
+
+val transferOrderSerializer = jsonSerializer<WCBinanceTransferOrder.Message> {
+    val jsonObject = JsonObject()
+    jsonObject.addProperty(WCBinanceTransferOrder.MessageKey.INPUTS.key, it.context.serialize(it.src.inputs))
+    jsonObject.addProperty(WCBinanceTransferOrder.MessageKey.OUTPUTS.key, it.context.serialize(it.src.outputs))
+    jsonObject
 }

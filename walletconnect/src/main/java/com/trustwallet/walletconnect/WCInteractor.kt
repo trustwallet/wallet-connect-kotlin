@@ -33,10 +33,14 @@ class WCInteractor (
     private val TAG = "WCInteractor"
 
     private val gson = builder
-            .registerTypeAdapter(cancelOrderDeserializer)
-            .registerTypeAdapter(tradeOrderDeserializer)
-            .registerTypeAdapter(transferOrderDeserializer)
-            .create()
+        .serializeNulls()
+        .registerTypeAdapter(cancelOrderSerializer)
+        .registerTypeAdapter(cancelOrderDeserializer)
+        .registerTypeAdapter(tradeOrderSerializer)
+        .registerTypeAdapter(tradeOrderDeserializer)
+        .registerTypeAdapter(transferOrderSerializer)
+        .registerTypeAdapter(transferOrderDeserializer)
+        .create()
 
     private var socket: WebSocket? = null
     private val clientId = UUID.randomUUID().toString()

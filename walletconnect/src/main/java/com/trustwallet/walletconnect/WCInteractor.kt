@@ -181,7 +181,7 @@ class WCInteractor (
                 message = message
             )
         )
-        return encryptAndSend(gson.toJson(response))
+        return send(gson.toJson(response))//encryptAndSend(gson.toJson(response))
     }
 
     private fun invalidParams(id: Long): Boolean {
@@ -284,6 +284,10 @@ class WCInteractor (
         Log.d(TAG,"==> subscribe $json")
 
         return socket?.send(gson.toJson(message)) ?: false
+    }
+
+    public fun send(result: String): Boolean {
+        return socket?.send(result) ?: false
     }
 
     private fun encryptAndSend(result: String): Boolean {

@@ -86,7 +86,6 @@ class WCInteractor (
             }
         } catch (e: InvalidJsonRpcParamsException) {
             invalidParams(e.requestId)
-            onFailure(e)
         } catch (e: Exception) {
             onFailure(e)
         }
@@ -157,9 +156,9 @@ class WCInteractor (
             throw InvalidSessionException()
         }
 
-        val response = JsonRpcResponse(
+        val response = JsonRpcErrorResponse(
             id = handshakeId,
-            result = JsonRpcError.serverError(
+            error = JsonRpcError.serverError(
                 message = message
             )
         )
@@ -179,9 +178,9 @@ class WCInteractor (
     }
 
     fun rejectRequest(id: Long, message: String = "Reject by the user"): Boolean {
-        val response = JsonRpcResponse(
+        val response = JsonRpcErrorResponse(
             id = id,
-            result = JsonRpcError.serverError(
+            error = JsonRpcError.serverError(
                 message = message
             )
         )
@@ -189,9 +188,9 @@ class WCInteractor (
     }
 
     private fun invalidParams(id: Long): Boolean {
-        val response = JsonRpcResponse(
+        val response = JsonRpcErrorResponse(
             id = id,
-            result = JsonRpcError.invalidParams(
+            error = JsonRpcError.invalidParams(
                 message = "Invalid parameters"
             )
         )

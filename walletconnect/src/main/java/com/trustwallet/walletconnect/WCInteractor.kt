@@ -51,7 +51,8 @@ class WCInteractor (
     var onDisconnect: (code: Int, reason: String) -> Unit = { _, _ -> Unit }
     var onSessionRequest: (id: Long, peer: WCPeerMeta) -> Unit = { _, _ -> Unit }
     var onEthSign: (id: Long, message: WCEthereumSignMessage) -> Unit = { _, _ -> Unit }
-    var onEthTransaction: (id: Long, transaction: WCEthereumTransaction) -> Unit = { _, _ -> Unit }
+    var onEthSignTransaction: (id: Long, transaction: WCEthereumTransaction) -> Unit = { _, _ -> Unit }
+    var onEthSendTransaction: (id: Long, transaction: WCEthereumTransaction) -> Unit = { _, _ -> Unit }
     var onCustomRequest: (id: Long, payload: String) -> Unit = { _, _ -> Unit }
     var onBnbTrade: (id: Long, order: WCBinanceTradeOrder) -> Unit = { _, _ -> Unit }
     var onBnbCancel: (id: Long, order: WCBinanceCancelOrder) -> Unit = { _, _ -> Unit }
@@ -235,12 +236,12 @@ class WCInteractor (
             WCMethod.ETH_SIGN_TRANSACTION -> {
                 val param = gson.fromJson<List<WCEthereumTransaction>>(request.params)
                         .firstOrNull() ?: throw InvalidJsonRpcParamsException(request.id)
-                onEthTransaction(request.id, param)
+                onEthSignTransaction(request.id, param)
             }
             WCMethod.ETH_SEND_TRANSACTION ->{
                 val param = gson.fromJson<List<WCEthereumTransaction>>(request.params)
                         .firstOrNull() ?: throw InvalidJsonRpcParamsException(request.id)
-                onEthTransaction(request.id, param)
+                onEthSendTransaction(request.id, param)
             }
             WCMethod.BNB_SIGN -> {
                 try {

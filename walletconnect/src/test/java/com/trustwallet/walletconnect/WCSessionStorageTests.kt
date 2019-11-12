@@ -66,10 +66,12 @@ class WCSessionStorageTests {
 
         storage.store(item1)
         storage.store(item2)
-        storage.clear(topic1)
+        storage.clear(topic2)
         Assert.assertEquals(storage.allSessions.size, 1)
-        Assert.assertNull(storage.allSessions[topic1])
-        Assert.assertNotNull(storage.allSessions[topic2])
+        Assert.assertNull(storage.allSessions[topic2])
+        Assert.assertNotNull(storage.lastSession)
+        Assert.assertEquals(storage.lastSession!!.session, session1)
+        Assert.assertNotNull(storage.allSessions[topic1])
     }
 
     @Test
@@ -86,6 +88,7 @@ class WCSessionStorageTests {
         storage.store(item2)
         storage.clearAll()
         Assert.assertEquals(storage.allSessions.size, 0)
+        Assert.assertNull(storage.lastSession)
     }
 
     @Test

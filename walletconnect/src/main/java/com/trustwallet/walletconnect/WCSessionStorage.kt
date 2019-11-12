@@ -23,19 +23,20 @@ class WCSessionStorage(
         .serializeNulls()
         .create()
 
-    val allSessions get(): Map<String, WCSessionStoreItem> {
-        val json = sharedPreferences.getString(SESSIONS_KEY, null) ?: return mapOf()
-        return gson.fromJson(json)
-    }
-
     fun store(session: WCSession, peerId: String, peerMeta: WCPeerMeta, autoSign: Boolean = false, date: Date = Date()) {
         store(WCSessionStoreItem(session, peerId, peerMeta, autoSign, date))
     }
 
     fun store(item: WCSessionStoreItem) {
+        val topic = item.session.topic
+
         val sessions = allSessions.toMutableMap()
-        sessions[item.session.topic] = item
-        store(sessions, item.session.topic)
+        sessions[topic] = item
+
+        val topics = allTopics.toMutableList()
+        topics.add(topic)
+
+        store(sessions, topics)
     }
 
     fun load(topic: String): WCSessionStoreItem? {
@@ -45,23 +46,36 @@ class WCSessionStorage(
     fun clear(topic: String) {
         val sessions = allSessions.toMutableMap()
         sessions.remove(topic)
-        store(sessions)
-    }
 
-    val lastSession: WCSessionStoreItem? get() {
-        val lastTopic = sharedPreferences.getString(LAST_SESSION_KEY, null) ?: return null
-        return allSessions[lastTopic]
+        val topics = allTopics.toMutableList()
+        topics.remove(topic)
+
+        store(sessions, topics)
     }
 
     fun clearAll() {
-        store(mapOf())
+        store(mapOf(), listOf())
     }
 
-    private fun store(items: Map<String, WCSessionStoreItem>, lastTopic: String? = null) {
-        val json = gson.toJson(items)
+    val lastSession: WCSessionStoreItem? get() {
+        val topic = allTopics.lastOrNull() ?: return null
+        return allSessions[topic]
+    }
+
+    val allSessions get(): Map<String, WCSessionStoreItem> {
+        val json = sharedPreferences.getString(SESSIONS_KEY, null) ?: return mapOf()
+        return gson.fromJson(json)
+    }
+
+    private val allTopics: List<String> get() {
+        val json = sharedPreferences.getString(TOPICS_KEY, null) ?: return listOf()
+        return gson.fromJson(json)
+    }
+
+    private fun store(items: Map<String, WCSessionStoreItem>, topics: List<String>) {
         update {
-            it.putString(SESSIONS_KEY, json)
-            it.putString(LAST_SESSION_KEY, lastTopic)
+            it.putString(SESSIONS_KEY, gson.toJson(items))
+            it.putString(TOPICS_KEY, gson.toJson(topics))
         }
     }
 
@@ -73,6 +87,6 @@ class WCSessionStorage(
 
     companion object {
         private const val SESSIONS_KEY = "org.walletconnect.sessions"
-        private const val LAST_SESSION_KEY = "org.walletconnect.last_session"
+        private const val TOPICS_KEY = "org.walletconnect.topics"
     }
 }

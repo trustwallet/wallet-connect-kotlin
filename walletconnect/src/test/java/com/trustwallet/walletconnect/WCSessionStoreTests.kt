@@ -14,10 +14,10 @@ import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [Build.VERSION_CODES.M])
-class WCSessionStorageTests {
+class WCSessionStoreTests {
     private val context = RuntimeEnvironment.systemContext
     private val sharedPreferences = context.getSharedPreferences("tests", Context.MODE_PRIVATE)
-    private val storage = WCSessionStorage(sharedPreferences)
+    private val storage = WCSessionStore(sharedPreferences)
 
     @Before
     fun before() {

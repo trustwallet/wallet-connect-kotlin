@@ -15,7 +15,7 @@ data class WCSessionStoreItem(
     val date: Date = Date()
 )
 
-class WCSessionStorage(
+class WCSessionStore(
     private val sharedPreferences: SharedPreferences,
     builder: GsonBuilder = GsonBuilder()
 ) {
@@ -34,6 +34,7 @@ class WCSessionStorage(
         sessions[topic] = item
 
         val topics = allTopics.toMutableList()
+        topics.remove(topic)
         topics.add(topic)
 
         store(sessions, topics)
@@ -57,10 +58,15 @@ class WCSessionStorage(
         store(mapOf(), listOf())
     }
 
-    val lastSession: WCSessionStoreItem? get() {
-        val topic = allTopics.lastOrNull() ?: return null
-        return allSessions[topic]
-    }
+    var lastSession: WCSessionStoreItem?
+        set(item) {
+            if (item != null)
+                store(item)
+        }
+        get() {
+            val topic = allTopics.lastOrNull() ?: return null
+            return allSessions[topic]
+        }
 
     val allSessions get(): Map<String, WCSessionStoreItem> {
         val json = sharedPreferences.getString(SESSIONS_KEY, null) ?: return mapOf()

@@ -25,8 +25,8 @@ const val JSONRPC_VERSION = "2.0"
 const val WS_CLOSE_NORMAL = 1000
 
 class WCInteractor (
-    private val session: WCSession,
-    private val clientMeta: WCPeerMeta,
+    private var session: WCSession,
+    private var peerMeta: WCPeerMeta,
     private val client: OkHttpClient,
     builder: GsonBuilder = GsonBuilder()
 ): WebSocketListener() {
@@ -43,8 +43,8 @@ class WCInteractor (
         .create()
 
     private var socket: WebSocket? = null
-    private val clientId = UUID.randomUUID().toString()
-    private var peerId: String? = null
+    private var peerId = UUID.randomUUID().toString()
+    private var remotePeerId: String? = null
     private var handshakeId: Long = -1
 
     var onFailure: (Throwable) -> Unit = { _ -> Unit}
@@ -66,8 +66,8 @@ class WCInteractor (
 
         // The Session.topic channel is used to listen session request messages only.
         subscribe(session.topic)
-        // The clientId channel is used to listen to all messages sent to this client.
-        subscribe(clientId)
+        // The peerId channel is used to listen to all messages sent to this client.
+        subscribe(peerId)
     }
 
     override fun onMessage(webSocket: WebSocket, text: String) {
@@ -106,13 +106,20 @@ class WCInteractor (
 
     override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
         handshakeId = -1
-        peerId = null
+        remotePeerId = null
         onDisconnect(code, reason)
     }
 
-    fun connect() {
+    fun connect(session: WCSession? = null, peerMeta: WCPeerMeta? = null, peerId: String? = null) {
+        if (session != null && peerMeta != null && peerId != null) {
+            disconnect()
+            this.session = session
+            this.peerMeta = peerMeta
+            this.peerId = peerId
+        }
+
         val request = Request.Builder()
-            .url(session.bridge)
+            .url(this.session.bridge)
             .build()
 
         socket = client.newWebSocket(request, this)
@@ -126,8 +133,8 @@ class WCInteractor (
         val result = WCApproveSessionResponse(
             chainId = chainId,
             accounts = accounts,
-            peerId = clientId,
-            peerMeta = clientMeta
+            peerId = peerId,
+            peerMeta = peerMeta
         )
         val response = JsonRpcResponse(
             id = handshakeId,
@@ -205,7 +212,7 @@ class WCInteractor (
                 val param = gson.fromJson<List<WCSessionRequest>>(request.params)
                         .firstOrNull() ?: throw InvalidJsonRpcParamsException(request.id)
                 handshakeId = request.id
-                peerId = param.peerId
+                remotePeerId = param.peerId
                 onSessionRequest(request.id, param.peerMeta)
             }
             WCMethod.SESSION_UPDATE -> {
@@ -294,9 +301,9 @@ class WCInteractor (
         Log.d(TAG,"==> message $result")
         val payload = gson.toJson(encrypt(result.toByteArray(Charsets.UTF_8), session.key.hexStringToByteArray()))
         val message = WCSocketMessage(
-            // Once the peerId is defined, all messages must be sent to this channel. The session.topic channel
+            // Once the remotePeerId is defined, all messages must be sent to this channel. The session.topic channel
             // will be used only to respond the session request message.
-            topic = peerId ?: session.topic,
+            topic = remotePeerId ?: session.topic,
             type = MessageType.PUB,
             payload = payload
         )

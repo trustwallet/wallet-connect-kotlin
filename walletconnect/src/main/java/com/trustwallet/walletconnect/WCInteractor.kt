@@ -1,12 +1,17 @@
 package com.trustwallet.walletconnect
 
 import android.util.Log
-import com.github.salomonbrys.kotson.*
-import com.google.gson.*
+import com.github.salomonbrys.kotson.fromJson
+import com.github.salomonbrys.kotson.registerTypeAdapter
+import com.github.salomonbrys.kotson.typeToken
+import com.google.gson.GsonBuilder
+import com.google.gson.JsonArray
 import com.trustwallet.walletconnect.exceptions.InvalidJsonRpcParamsException
-import com.trustwallet.walletconnect.exceptions.InvalidSessionException
 import com.trustwallet.walletconnect.extensions.hexStringToByteArray
-import com.trustwallet.walletconnect.jsonrpc.*
+import com.trustwallet.walletconnect.jsonrpc.JsonRpcError
+import com.trustwallet.walletconnect.jsonrpc.JsonRpcErrorResponse
+import com.trustwallet.walletconnect.jsonrpc.JsonRpcRequest
+import com.trustwallet.walletconnect.jsonrpc.JsonRpcResponse
 import com.trustwallet.walletconnect.models.*
 import com.trustwallet.walletconnect.models.binance.*
 import com.trustwallet.walletconnect.models.ethereum.WCEthereumSignMessage
@@ -25,10 +30,8 @@ const val JSONRPC_VERSION = "2.0"
 const val WS_CLOSE_NORMAL = 1000
 
 class WCInteractor (
-    private var session: WCSession,
-    private var peerMeta: WCPeerMeta,
-    private val client: OkHttpClient,
-    builder: GsonBuilder = GsonBuilder()
+    builder: GsonBuilder = GsonBuilder(),
+    private val httpClient: OkHttpClient
 ): WebSocketListener() {
     private val TAG = "WCInteractor"
 
@@ -43,8 +46,22 @@ class WCInteractor (
         .create()
 
     private var socket: WebSocket? = null
-    private var peerId = UUID.randomUUID().toString()
-    private var remotePeerId: String? = null
+
+    var session: WCSession? = null
+        private set
+
+    var peerMeta: WCPeerMeta? = null
+        private set
+
+    var peerId: String? = null
+        private set
+
+    var remotePeerId: String? = null
+        private set
+
+    var isConnected: Boolean = false
+        private set
+
     private var handshakeId: Long = -1
 
     var onFailure: (Throwable) -> Unit = { _ -> Unit}
@@ -63,10 +80,13 @@ class WCInteractor (
 
     override fun onOpen(webSocket: WebSocket, response: Response) {
         Log.d(TAG, "<< websocket opened >>")
+        isConnected = true
 
+        val session = this.session ?: throw IllegalStateException("session can't be null on connection open")
+        val peerId = this.peerId ?: throw IllegalStateException("peerId can't be null on connection open")
         // The Session.topic channel is used to listen session request messages only.
         subscribe(session.topic)
-        // The peerId channel is used to listen to all messages sent to this client.
+        // The peerId channel is used to listen to all messages sent to this httpClient.
         subscribe(peerId)
     }
 
@@ -75,6 +95,7 @@ class WCInteractor (
             Log.d(TAG, "<== message $text")
             val message = gson.fromJson<WCSocketMessage>(text)
             val encrypted = gson.fromJson<WCEncryptionPayload>(message.payload)
+            val session = this.session ?: throw IllegalStateException("session can't be null on message receive")
             val payload = String(decrypt(encrypted, session.key.hexStringToByteArray()), Charsets.UTF_8)
             Log.d(TAG, "<== decrypted $payload")
 
@@ -94,10 +115,13 @@ class WCInteractor (
 
     override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
         onFailure(t)
+        isConnected = false
+        reconnect()
     }
 
     override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
         Log.d(TAG,"<< websocket closed >>")
+        isConnected = false
     }
 
     override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
@@ -110,25 +134,31 @@ class WCInteractor (
         onDisconnect(code, reason)
     }
 
-    fun connect(session: WCSession? = null, peerMeta: WCPeerMeta? = null, peerId: String? = null) {
-        if (session != null && peerMeta != null && peerId != null) {
+    fun reconnect() {
+        val session = this.session ?: return
+        val peerMeta = this.peerMeta ?: return
+        val peerId = this.peerId ?: return
+        connect(session, peerMeta, peerId)
+    }
+
+    fun connect(session: WCSession, peerMeta: WCPeerMeta, peerId: String = UUID.randomUUID().toString()) {
+        if (this.session?.topic != session.topic) {
             disconnect()
-            this.session = session
-            this.peerMeta = peerMeta
-            this.peerId = peerId
         }
 
+        this.session = session
+        this.peerMeta = peerMeta
+        this.peerId = peerId
+
         val request = Request.Builder()
-            .url(this.session.bridge)
+            .url(session.bridge)
             .build()
 
-        socket = client.newWebSocket(request, this)
+        socket = httpClient.newWebSocket(request, this)
     }
 
     fun approveSesssion(accounts: List<String>, chainId: Int): Boolean {
-        if (handshakeId <= 0) {
-            throw InvalidSessionException()
-        }
+        check(handshakeId > 0) { "handshakeId must be greater than 0 on session approve" }
 
         val result = WCApproveSessionResponse(
             chainId = chainId,
@@ -160,9 +190,7 @@ class WCInteractor (
     }
 
     fun rejectSession(message: String = "Session rejected"): Boolean {
-        if (handshakeId <= 0) {
-            throw InvalidSessionException()
-        }
+        check(handshakeId > 0) { "handshakeId must be greater than 0 on session reject" }
 
         val response = JsonRpcErrorResponse(
             id = handshakeId,
@@ -299,6 +327,7 @@ class WCInteractor (
 
     private fun encryptAndSend(result: String): Boolean {
         Log.d(TAG,"==> message $result")
+        val session = this.session ?: throw IllegalStateException("session can't be null on message send")
         val payload = gson.toJson(encrypt(result.toByteArray(Charsets.UTF_8), session.key.hexStringToByteArray()))
         val message = WCSocketMessage(
             // Once the remotePeerId is defined, all messages must be sent to this channel. The session.topic channel

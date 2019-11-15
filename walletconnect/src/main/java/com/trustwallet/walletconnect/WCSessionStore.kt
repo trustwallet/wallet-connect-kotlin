@@ -8,11 +8,11 @@ import com.trustwallet.walletconnect.models.session.WCSession
 import java.util.*
 
 data class WCSessionStoreItem(
-    val session: WCSession,
-    val peerId: String,
-    val peerMeta: WCPeerMeta,
-    val autoSign: Boolean = false,
-    val date: Date = Date()
+        val session: WCSession,
+        val peerId: String,
+        val peerMeta: WCPeerMeta,
+        val isAutoSign: Boolean = false,
+        val date: Date = Date()
 )
 
 class WCSessionStore(

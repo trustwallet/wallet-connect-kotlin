@@ -2,8 +2,6 @@ apply plugin: 'com.android.library'
 
 apply plugin: 'kotlin-android'
 
-apply plugin: 'com.github.dcendents.android-maven'
-
 group='com.github.TrustWallet'
 
 android {
@@ -32,6 +30,11 @@ android {
             includeAndroidResources = true
         }
     }
+    compileOptions {
+        sourceCompatibility = "1.8"
+        targetCompatibility = 1.8
+    }
+    buildToolsVersion = '28.0.3'
 }
 
 dependencies {

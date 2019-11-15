@@ -346,6 +346,21 @@ class WCInteractor (
     private fun disconnect(): Boolean {
         return socket?.close(WS_CLOSE_NORMAL, null) ?: false
     }
+
+    fun clearObservers() {
+        this.onDisconnect = { _, _ -> Unit }
+        this.onFailure = { _ -> Unit }
+        this.onSessionRequest = { _, _ -> Unit }
+        this.onGetAccounts = { _ -> Unit }
+        this.onEthSign = { _, _ -> Unit }
+        this.onEthSignTransaction = { _, _ -> Unit }
+        this.onEthSendTransaction = { _, _ -> Unit }
+        this.onBnbTrade = { _, _ -> Unit }
+        this.onBnbCancel = { _, _ -> Unit }
+        this.onBnbTransfer = { _, _ -> Unit }
+        this.onBnbTxConfirm = { _, _ -> Unit }
+        this.onSignTransaction = { _, _ -> Unit }
+    }
 }
 
 private fun generateId(): Long {

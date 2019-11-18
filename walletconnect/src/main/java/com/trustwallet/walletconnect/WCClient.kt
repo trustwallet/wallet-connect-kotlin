@@ -29,11 +29,11 @@ import java.util.*
 const val JSONRPC_VERSION = "2.0"
 const val WS_CLOSE_NORMAL = 1000
 
-class WCInteractor (
+class WCClient (
     builder: GsonBuilder = GsonBuilder(),
     private val httpClient: OkHttpClient
 ): WebSocketListener() {
-    private val TAG = "WCInteractor"
+    private val TAG = "WCClient"
 
     private val gson = builder
         .serializeNulls()
@@ -345,21 +345,6 @@ class WCInteractor (
 
     private fun disconnect(): Boolean {
         return socket?.close(WS_CLOSE_NORMAL, null) ?: false
-    }
-
-    fun clearObservers() {
-        this.onDisconnect = { _, _ -> Unit }
-        this.onFailure = { _ -> Unit }
-        this.onSessionRequest = { _, _ -> Unit }
-        this.onGetAccounts = { _ -> Unit }
-        this.onEthSign = { _, _ -> Unit }
-        this.onEthSignTransaction = { _, _ -> Unit }
-        this.onEthSendTransaction = { _, _ -> Unit }
-        this.onBnbTrade = { _, _ -> Unit }
-        this.onBnbCancel = { _, _ -> Unit }
-        this.onBnbTransfer = { _, _ -> Unit }
-        this.onBnbTxConfirm = { _, _ -> Unit }
-        this.onSignTransaction = { _, _ -> Unit }
     }
 }
 

@@ -116,12 +116,14 @@ class WCClient (
     override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
         onFailure(t)
         isConnected = false
-        reconnect()
     }
 
     override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
         Log.d(TAG,"<< websocket closed >>")
+        handshakeId = -1
+        remotePeerId = null
         isConnected = false
+        onDisconnect(code, reason)
     }
 
     override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
@@ -129,21 +131,12 @@ class WCClient (
     }
 
     override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
-        handshakeId = -1
-        remotePeerId = null
-        onDisconnect(code, reason)
-    }
-
-    fun reconnect() {
-        val session = this.session ?: return
-        val peerMeta = this.peerMeta ?: return
-        val peerId = this.peerId ?: return
-        connect(session, peerMeta, peerId)
+        Log.d(TAG,"<< closing socket >>")
     }
 
     fun connect(session: WCSession, peerMeta: WCPeerMeta, peerId: String = UUID.randomUUID().toString()) {
-        if (this.session?.topic != session.topic) {
-            disconnect()
+        if (this.session != null && this.session?.topic != session.topic) {
+            killSession()
         }
 
         this.session = session

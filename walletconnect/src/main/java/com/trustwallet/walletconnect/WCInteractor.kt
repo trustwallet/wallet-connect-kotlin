@@ -314,7 +314,7 @@ class WCInteractor (
     }
 
 
-    private fun disconnect(): Boolean {
+    fun disconnect(): Boolean {
         return socket?.close(WS_CLOSE_NORMAL, null) ?: false
     }
 }

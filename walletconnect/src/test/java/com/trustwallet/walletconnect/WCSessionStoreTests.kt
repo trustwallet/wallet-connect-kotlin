@@ -19,87 +19,33 @@ class WCSessionStoreTests {
     private val sharedPreferences = context.getSharedPreferences("tests", Context.MODE_PRIVATE)
     private val storage = WCSessionStore(sharedPreferences)
 
+    companion object {
+        const val SESSION_KEY = "org.walletconnect.session"
+    }
+
     @Before
     fun before() {
         sharedPreferences.edit().clear().commit()
     }
 
     @Test
-    fun test_storeItem() {
+    fun test_store() {
         val topic = "topic_1"
         val session = WCSession.from("wc:$topic@1?bridge=https%3A%2F%2Fbridge.walletconnect.org&key=some_key")!!
         val item = WCSessionStoreItem(session, "peerId", WCPeerMeta(name = "Some DApp", url = "https://dapp.com"))
 
-        storage.store(item)
-        Assert.assertEquals(storage.allSessions.size, 1)
-        Assert.assertEquals(storage.allSessions.getValue(topic).session, item.session)
-        Assert.assertNotNull(storage.lastSession)
+        storage.session = item
+        Assert.assertNotNull(sharedPreferences.getString(SESSION_KEY, null))
     }
 
     @Test
-    fun test_getLastSession() {
-        val topic1 = "topic_1"
-        val session1 = WCSession.from("wc:$topic1@1?bridge=https%3A%2F%2Fbridge.walletconnect.org&key=some_key")!!
-        val item1 = WCSessionStoreItem(session1, "peerId", WCPeerMeta(name = "Some DApp", url = "https://dapp.com"))
-
-        val topic2 = "topic_2"
-        val session2 = WCSession.from("wc:$topic2@1?bridge=https%3A%2F%2Fbridge.walletconnect.org&key=some_key")!!
-        val item2 = WCSessionStoreItem(session2, "peerId", WCPeerMeta(name = "Some DApp", url = "https://dapp.com"))
-
-        storage.store(item1)
-        storage.store(item2)
-        Assert.assertEquals(storage.allSessions.size, 2)
-        Assert.assertEquals(storage.allSessions.getValue(topic1).session, item1.session)
-        Assert.assertNotNull(storage.lastSession)
-        Assert.assertEquals(storage.lastSession!!.session, item2.session)
-    }
-
-    @Test
-    fun test_clearSession() {
-        val topic1 = "topic_1"
-        val session1 = WCSession.from("wc:$topic1@1?bridge=https%3A%2F%2Fbridge.walletconnect.org&key=some_key")!!
-        val item1 = WCSessionStoreItem(session1, "peerId", WCPeerMeta(name = "Some DApp", url = "https://dapp.com"))
-
-        val topic2 = "topic_2"
-        val session2 = WCSession.from("wc:$topic2@1?bridge=https%3A%2F%2Fbridge.walletconnect.org&key=some_key")!!
-        val item2 = WCSessionStoreItem(session2, "peerId", WCPeerMeta(name = "Some DApp", url = "https://dapp.com"))
-
-        storage.store(item1)
-        storage.store(item2)
-        storage.clear(topic2)
-        Assert.assertEquals(storage.allSessions.size, 1)
-        Assert.assertNull(storage.allSessions[topic2])
-        Assert.assertNotNull(storage.lastSession)
-        Assert.assertEquals(storage.lastSession!!.session, session1)
-        Assert.assertNotNull(storage.allSessions[topic1])
-    }
-
-    @Test
-    fun test_clearAll() {
-        val topic1 = "topic_1"
-        val session1 = WCSession.from("wc:$topic1@1?bridge=https%3A%2F%2Fbridge.walletconnect.org&key=some_key")!!
-        val item1 = WCSessionStoreItem(session1, "peerId", WCPeerMeta(name = "Some DApp", url = "https://dapp.com"))
-
-        val topic2 = "topic_2"
-        val session2 = WCSession.from("wc:$topic2@1?bridge=https%3A%2F%2Fbridge.walletconnect.org&key=some_key")!!
-        val item2 = WCSessionStoreItem(session2, "peerId", WCPeerMeta(name = "Some DApp", url = "https://dapp.com"))
-
-        storage.store(item1)
-        storage.store(item2)
-        storage.clearAll()
-        Assert.assertEquals(storage.allSessions.size, 0)
-        Assert.assertNull(storage.lastSession)
-    }
-
-    @Test
-    fun test_load() {
-        val topic = "topic"
+    fun test_remove() {
+        val topic = "topic_1"
         val session = WCSession.from("wc:$topic@1?bridge=https%3A%2F%2Fbridge.walletconnect.org&key=some_key")!!
         val item = WCSessionStoreItem(session, "peerId", WCPeerMeta(name = "Some DApp", url = "https://dapp.com"))
 
-        storage.store(item)
-        Assert.assertNotNull(storage.load(topic))
-        Assert.assertEquals(storage.load(topic)!!.session, session)
-        Assert.assertNull(storage.load("other_topic"))
+        storage.session = item
+        storage.session = null
+        Assert.assertFalse(sharedPreferences.contains(SESSION_KEY))
     }
 }

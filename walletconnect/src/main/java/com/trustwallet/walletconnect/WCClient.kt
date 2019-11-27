@@ -150,7 +150,7 @@ class WCClient (
         socket = httpClient.newWebSocket(request, this)
     }
 
-    fun approveSesssion(accounts: List<String>, chainId: Int): Boolean {
+    fun approveSession(accounts: List<String>, chainId: Int): Boolean {
         check(handshakeId > 0) { "handshakeId must be greater than 0 on session approve" }
 
         val result = WCApproveSessionResponse(

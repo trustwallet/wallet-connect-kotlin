@@ -10,7 +10,8 @@ import java.util.*
 data class WCSessionStoreItem(
     val session: WCSession,
     val peerId: String,
-    val peerMeta: WCPeerMeta,
+    val remotePeerId: String,
+    val remotePeerMeta: WCPeerMeta,
     val isAutoSign: Boolean = false,
     val date: Date = Date()
 )

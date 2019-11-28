@@ -32,7 +32,7 @@ class WCSessionStoreTests {
     fun test_store() {
         val topic = "topic_1"
         val session = WCSession.from("wc:$topic@1?bridge=https%3A%2F%2Fbridge.walletconnect.org&key=some_key")!!
-        val item = WCSessionStoreItem(session, "peerId", WCPeerMeta(name = "Some DApp", url = "https://dapp.com"))
+        val item = WCSessionStoreItem(session, "peerId", "remotePeerId", WCPeerMeta(name = "Some DApp", url = "https://dapp.com"))
 
         storage.session = item
         Assert.assertNotNull(sharedPreferences.getString(SESSION_KEY, null))
@@ -42,7 +42,7 @@ class WCSessionStoreTests {
     fun test_remove() {
         val topic = "topic_1"
         val session = WCSession.from("wc:$topic@1?bridge=https%3A%2F%2Fbridge.walletconnect.org&key=some_key")!!
-        val item = WCSessionStoreItem(session, "peerId", WCPeerMeta(name = "Some DApp", url = "https://dapp.com"))
+        val item = WCSessionStoreItem(session, "peerId","remotePeerId", WCPeerMeta(name = "Some DApp", url = "https://dapp.com"))
 
         storage.session = item
         storage.session = null

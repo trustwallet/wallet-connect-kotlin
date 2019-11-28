@@ -134,7 +134,7 @@ class WCClient (
         Log.d(TAG,"<< closing socket >>")
     }
 
-    fun connect(session: WCSession, peerMeta: WCPeerMeta, peerId: String = UUID.randomUUID().toString()) {
+    fun connect(session: WCSession, peerMeta: WCPeerMeta, peerId: String = UUID.randomUUID().toString(), remotePeerId: String? = null) {
         if (this.session != null && this.session?.topic != session.topic) {
             killSession()
         }
@@ -142,6 +142,7 @@ class WCClient (
         this.session = session
         this.peerMeta = peerMeta
         this.peerId = peerId
+        this.remotePeerId = remotePeerId
 
         val request = Request.Builder()
             .url(session.bridge)

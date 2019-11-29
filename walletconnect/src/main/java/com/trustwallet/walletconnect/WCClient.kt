@@ -241,7 +241,7 @@ class WCClient (
                 val param = gson.fromJson<List<WCSessionUpdate>>(request.params)
                         .firstOrNull() ?: throw InvalidJsonRpcParamsException(request.id)
                 if (!param.approved) {
-                    disconnect()
+                    killSession()
                 }
             }
             WCMethod.ETH_SIGN -> {

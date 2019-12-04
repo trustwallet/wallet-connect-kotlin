@@ -29,7 +29,7 @@ import java.util.*
 const val JSONRPC_VERSION = "2.0"
 const val WS_CLOSE_NORMAL = 1000
 
-class WCClient (
+open class WCClient (
     builder: GsonBuilder = GsonBuilder(),
     private val httpClient: OkHttpClient
 ): WebSocketListener() {
@@ -114,16 +114,12 @@ class WCClient (
     }
 
     override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+        resetState()
         onFailure(t)
-        isConnected = false
     }
 
     override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
         Log.d(TAG,"<< websocket closed >>")
-        handshakeId = -1
-        remotePeerId = null
-        isConnected = false
-        onDisconnect(code, reason)
     }
 
     override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
@@ -132,6 +128,8 @@ class WCClient (
 
     override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
         Log.d(TAG,"<< closing socket >>")
+        resetState()
+        onDisconnect(code, reason)
     }
 
     fun connect(session: WCSession, peerMeta: WCPeerMeta, peerId: String = UUID.randomUUID().toString(), remotePeerId: String? = null) {
@@ -196,7 +194,8 @@ class WCClient (
     }
 
     fun killSession(): Boolean {
-        return updateSession(approved = false) && disconnect()
+        updateSession(approved = false)
+        return disconnect()
     }
 
     fun <T> approveRequest(id: Long, result: T): Boolean {
@@ -307,7 +306,7 @@ class WCClient (
         }
     }
     
-    private fun subscribe(topic: String): Boolean {
+    open fun subscribe(topic: String): Boolean {
         val message = WCSocketMessage(
             topic = topic,
             type = MessageType.SUB,
@@ -319,7 +318,7 @@ class WCClient (
         return socket?.send(gson.toJson(message)) ?: false
     }
 
-    private fun encryptAndSend(result: String): Boolean {
+    open fun encryptAndSend(result: String): Boolean {
         Log.d(TAG,"==> message $result")
         val session = this.session ?: throw IllegalStateException("session can't be null on message send")
         val payload = gson.toJson(encrypt(result.toByteArray(Charsets.UTF_8), session.key.hexStringToByteArray()))
@@ -339,6 +338,15 @@ class WCClient (
 
     fun disconnect(): Boolean {
         return socket?.close(WS_CLOSE_NORMAL, null) ?: false
+    }
+
+    private fun resetState() {
+        handshakeId = -1
+        isConnected = false
+        session = null
+        peerId = null
+        remotePeerId = null
+        peerMeta = null
     }
 }
 

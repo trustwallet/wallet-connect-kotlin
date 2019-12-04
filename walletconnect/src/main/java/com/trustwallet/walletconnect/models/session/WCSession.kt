@@ -8,6 +8,8 @@ data class WCSession (
     val bridge: String,
     val key: String
 ) {
+    fun toUri(): String = "wc:${topic}@${version}?bridge=${bridge}&key=${key}"
+
     companion object {
         fun from(from: String): WCSession? {
             if (!from.startsWith("wc:")) {

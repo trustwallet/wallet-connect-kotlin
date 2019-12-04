@@ -17,7 +17,7 @@ import org.robolectric.annotation.Config
 class WCSessionStoreTests {
     private val context = RuntimeEnvironment.systemContext
     private val sharedPreferences = context.getSharedPreferences("tests", Context.MODE_PRIVATE)
-    private val storage = WCSessionStore(sharedPreferences)
+    private val storage = WCSessionStoreType(sharedPreferences)
 
     companion object {
         const val SESSION_KEY = "org.walletconnect.session"

@@ -306,7 +306,7 @@ open class WCClient (
         }
     }
     
-    open fun subscribe(topic: String): Boolean {
+    private fun subscribe(topic: String): Boolean {
         val message = WCSocketMessage(
             topic = topic,
             type = MessageType.SUB,
@@ -318,7 +318,7 @@ open class WCClient (
         return socket?.send(gson.toJson(message)) ?: false
     }
 
-    open fun encryptAndSend(result: String): Boolean {
+    private fun encryptAndSend(result: String): Boolean {
         Log.d(TAG,"==> message $result")
         val session = this.session ?: throw IllegalStateException("session can't be null on message send")
         val payload = gson.toJson(encrypt(result.toByteArray(Charsets.UTF_8), session.key.hexStringToByteArray()))

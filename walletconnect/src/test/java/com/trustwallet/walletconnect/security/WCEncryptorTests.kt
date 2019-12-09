@@ -24,7 +24,7 @@ class WCEncryptorTests {
             hmac = hmac
         )
 
-        val decrypted = String(decrypt(payload, key), Charsets.UTF_8)
+        val decrypted = String(decryptMessage(payload, key), Charsets.UTF_8)
         val expected = "{\"id\":1554098597199736,\"jsonrpc\":\"2.0\",\"method\":\"wc_sessionUpdate\",\"params\":[{\"approved\":false,\"chainId\":null,\"accounts\":null}]}"
         Assert.assertEquals(expected, decrypted)
     }
@@ -34,7 +34,7 @@ class WCEncryptorTests {
         val expected = "{\"id\":1554098597199736,\"jsonrpc\":\"2.0\",\"method\":\"wc_sessionUpdate\",\"params\":[{\"approved\":false,\"chainId\":null,\"accounts\":null}]}".hexStringToByteArray()
         val key = "5caa3a74154cee16bd1b570a1330be46e086474ac2f4720530662ef1a469662c".hexStringToByteArray()
         val payload = encrypt(data = expected, key = key)
-        val decrypted = decrypt(payload, key)
+        val decrypted = decryptMessage(payload, key)
         Assert.assertArrayEquals(expected, decrypted)
     }
 }

@@ -20,8 +20,6 @@ import com.trustwallet.walletconnect.models.session.WCApproveSessionResponse
 import com.trustwallet.walletconnect.models.session.WCSession
 import com.trustwallet.walletconnect.models.session.WCSessionRequest
 import com.trustwallet.walletconnect.models.session.WCSessionUpdate
-import com.trustwallet.walletconnect.security.decrypt
-import com.trustwallet.walletconnect.security.encrypt
 import okhttp3.*
 import okio.ByteString
 import java.util.*
@@ -224,7 +222,7 @@ open class WCClient (
         val message = gson.fromJson<WCSocketMessage>(text)
         val encrypted = gson.fromJson<WCEncryptionPayload>(message.payload)
         val session = this.session ?: throw IllegalStateException("session can't be null on message receive")
-        return String(decrypt(encrypted, session.key.hexStringToByteArray()), Charsets.UTF_8)
+        return String(WCCipher.decrypt(encrypted, session.key.hexStringToByteArray()), Charsets.UTF_8)
     }
 
     private fun invalidParams(id: Long): Boolean {
@@ -346,7 +344,7 @@ open class WCClient (
     private fun encryptAndSend(result: String): Boolean {
         Log.d(TAG,"==> message $result")
         val session = this.session ?: throw IllegalStateException("session can't be null on message send")
-        val payload = gson.toJson(encrypt(result.toByteArray(Charsets.UTF_8), session.key.hexStringToByteArray()))
+        val payload = gson.toJson(WCCipher.encrypt(result.toByteArray(Charsets.UTF_8), session.key.hexStringToByteArray()))
         val message = WCSocketMessage(
             // Once the remotePeerId is defined, all messages must be sent to this channel. The session.topic channel
             // will be used only to respond the session request message.

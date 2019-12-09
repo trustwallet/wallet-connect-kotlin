@@ -47,6 +47,8 @@ open class WCClient (
 
     private var socket: WebSocket? = null
 
+    private val listeners: MutableSet<WebSocketListener> = mutableSetOf()
+
     var session: WCSession? = null
         private set
 
@@ -82,6 +84,8 @@ open class WCClient (
         Log.d(TAG, "<< websocket opened >>")
         isConnected = true
 
+        listeners.forEach { it.onOpen(webSocket, response) }
+
         val session = this.session ?: throw IllegalStateException("session can't be null on connection open")
         val peerId = this.peerId ?: throw IllegalStateException("peerId can't be null on connection open")
         // The Session.topic channel is used to listen session request messages only.
@@ -91,45 +95,45 @@ open class WCClient (
     }
 
     override fun onMessage(webSocket: WebSocket, text: String) {
+        var decrypted: String? = null
         try {
             Log.d(TAG, "<== message $text")
-            val message = gson.fromJson<WCSocketMessage>(text)
-            val encrypted = gson.fromJson<WCEncryptionPayload>(message.payload)
-            val session = this.session ?: throw IllegalStateException("session can't be null on message receive")
-            val payload = String(decrypt(encrypted, session.key.hexStringToByteArray()), Charsets.UTF_8)
-            Log.d(TAG, "<== decrypted $payload")
-
-            val request = gson.fromJson<JsonRpcRequest<JsonArray>>(payload, typeToken<JsonRpcRequest<JsonArray>>())
-            val method = request.method
-            if (method != null) {
-                handleRequest(request)
-            } else {
-                onCustomRequest(request.id, payload)
-            }
-        } catch (e: InvalidJsonRpcParamsException) {
-            invalidParams(e.requestId)
+            decrypted = decryptMessage(text)
+            Log.d(TAG, "<== decrypted $decrypted")
+            handleMessage(decrypted)
         } catch (e: Exception) {
             onFailure(e)
+        } finally {
+            listeners.forEach { it.onMessage(webSocket, decrypted ?: text) }
         }
     }
 
     override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
         resetState()
         onFailure(t)
+
+        listeners.forEach { it.onFailure(webSocket, t, response) }
     }
 
     override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
         Log.d(TAG,"<< websocket closed >>")
+
+        listeners.forEach { it.onClosed(webSocket, code, reason) }
     }
 
     override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
         Log.d(TAG,"<== pong")
+
+        listeners.forEach { it.onMessage(webSocket, bytes) }
     }
 
     override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
         Log.d(TAG,"<< closing socket >>")
+
         resetState()
         onDisconnect(code, reason)
+
+        listeners.forEach { it.onClosing(webSocket, code, reason) }
     }
 
     fun connect(session: WCSession, peerMeta: WCPeerMeta, peerId: String = UUID.randomUUID().toString(), remotePeerId: String? = null) {
@@ -216,6 +220,13 @@ open class WCClient (
         return encryptAndSend(gson.toJson(response))
     }
 
+    private fun decryptMessage(text: String): String {
+        val message = gson.fromJson<WCSocketMessage>(text)
+        val encrypted = gson.fromJson<WCEncryptionPayload>(message.payload)
+        val session = this.session ?: throw IllegalStateException("session can't be null on message receive")
+        return String(decrypt(encrypted, session.key.hexStringToByteArray()), Charsets.UTF_8)
+    }
+
     private fun invalidParams(id: Long): Boolean {
         val response = JsonRpcErrorResponse(
             id = id,
@@ -225,6 +236,20 @@ open class WCClient (
         )
 
         return encryptAndSend(gson.toJson(response))
+    }
+
+    private fun handleMessage(payload: String) {
+        try {
+            val request = gson.fromJson<JsonRpcRequest<JsonArray>>(payload, typeToken<JsonRpcRequest<JsonArray>>())
+            val method = request.method
+            if (method != null) {
+                handleRequest(request)
+            } else {
+                onCustomRequest(request.id, payload)
+            }
+        } catch (e: InvalidJsonRpcParamsException) {
+            invalidParams(e.requestId)
+        }
     }
 
     private fun handleRequest(request: JsonRpcRequest<JsonArray>) {
@@ -338,6 +363,14 @@ open class WCClient (
 
     fun disconnect(): Boolean {
         return socket?.close(WS_CLOSE_NORMAL, null) ?: false
+    }
+
+    fun addSocketListener(listener: WebSocketListener) {
+        listeners.add(listener)
+    }
+
+    fun removeSocketListener(listener: WebSocketListener) {
+        listeners.remove(listener)
     }
 
     private fun resetState() {

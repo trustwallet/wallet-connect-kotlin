@@ -20,7 +20,7 @@ import com.trustwallet.walletconnect.models.session.WCApproveSessionResponse
 import com.trustwallet.walletconnect.models.session.WCSession
 import com.trustwallet.walletconnect.models.session.WCSessionRequest
 import com.trustwallet.walletconnect.models.session.WCSessionUpdate
-import com.trustwallet.walletconnect.security.decryptMessage
+import com.trustwallet.walletconnect.security.decrypt
 import com.trustwallet.walletconnect.security.encrypt
 import okhttp3.*
 import okio.ByteString
@@ -224,7 +224,7 @@ open class WCClient (
         val message = gson.fromJson<WCSocketMessage>(text)
         val encrypted = gson.fromJson<WCEncryptionPayload>(message.payload)
         val session = this.session ?: throw IllegalStateException("session can't be null on message receive")
-        return String(decryptMessage(encrypted, session.key.hexStringToByteArray()), Charsets.UTF_8)
+        return String(decrypt(encrypted, session.key.hexStringToByteArray()), Charsets.UTF_8)
     }
 
     private fun invalidParams(id: Long): Boolean {

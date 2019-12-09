@@ -30,7 +30,7 @@ fun encrypt(data: ByteArray, key: ByteArray): WCEncryptionPayload {
     )
 }
 
-fun decryptMessage(payload: WCEncryptionPayload, key: ByteArray): ByteArray {
+fun decrypt(payload: WCEncryptionPayload, key: ByteArray): ByteArray {
     val data = payload.data.hexStringToByteArray()
     val iv = payload.iv.hexStringToByteArray()
     val computedHmac = computeHmac(data = data, iv = iv, key = key)

@@ -1,4 +1,4 @@
-package com.trustwallet.walletconnect.security
+package com.trustwallet.walletconnect
 
 import android.os.Build
 import com.trustwallet.walletconnect.extensions.hexStringToByteArray
@@ -11,7 +11,7 @@ import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [Build.VERSION_CODES.O_MR1])
-class WCEncryptorTests {
+class WCCipherTests {
     @Test
     fun test_decrypt() {
         val data = "1b3db3674de082d65455eba0ae61cfe7e681c8ef1132e60c8dbd8e52daf18f4fea42cc76366c83351dab6dca52682ff81f828753f89a21e1cc46587ca51ccd353914ffdd3b0394acfee392be6c22b3db9237d3f717a3777e3577dd70408c089a4c9c85130a68c43b0a8aadb00f1b8a8558798104e67aa4ff027b35d4b989e7fd3988d5dcdd563105767670be735b21c4"
@@ -24,7 +24,7 @@ class WCEncryptorTests {
             hmac = hmac
         )
 
-        val decrypted = String(decrypt(payload, key), Charsets.UTF_8)
+        val decrypted = String(WCCipher.decrypt(payload, key), Charsets.UTF_8)
         val expected = "{\"id\":1554098597199736,\"jsonrpc\":\"2.0\",\"method\":\"wc_sessionUpdate\",\"params\":[{\"approved\":false,\"chainId\":null,\"accounts\":null}]}"
         Assert.assertEquals(expected, decrypted)
     }
@@ -33,8 +33,8 @@ class WCEncryptorTests {
     fun test_encrypt() {
         val expected = "{\"id\":1554098597199736,\"jsonrpc\":\"2.0\",\"method\":\"wc_sessionUpdate\",\"params\":[{\"approved\":false,\"chainId\":null,\"accounts\":null}]}".hexStringToByteArray()
         val key = "5caa3a74154cee16bd1b570a1330be46e086474ac2f4720530662ef1a469662c".hexStringToByteArray()
-        val payload = encrypt(data = expected, key = key)
-        val decrypted = decrypt(payload, key)
+        val payload = WCCipher.encrypt(data = expected, key = key)
+        val decrypted = WCCipher.decrypt(payload, key)
         Assert.assertArrayEquals(expected, decrypted)
     }
 }

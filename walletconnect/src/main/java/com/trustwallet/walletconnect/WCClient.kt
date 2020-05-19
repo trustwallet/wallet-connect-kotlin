@@ -1,12 +1,17 @@
 package com.trustwallet.walletconnect
 
 import android.util.Log
-import com.github.salomonbrys.kotson.*
-import com.google.gson.*
+import com.github.salomonbrys.kotson.fromJson
+import com.github.salomonbrys.kotson.registerTypeAdapter
+import com.github.salomonbrys.kotson.typeToken
+import com.google.gson.GsonBuilder
+import com.google.gson.JsonArray
 import com.trustwallet.walletconnect.exceptions.InvalidJsonRpcParamsException
-import com.trustwallet.walletconnect.exceptions.InvalidSessionException
 import com.trustwallet.walletconnect.extensions.hexStringToByteArray
-import com.trustwallet.walletconnect.jsonrpc.*
+import com.trustwallet.walletconnect.jsonrpc.JsonRpcError
+import com.trustwallet.walletconnect.jsonrpc.JsonRpcErrorResponse
+import com.trustwallet.walletconnect.jsonrpc.JsonRpcRequest
+import com.trustwallet.walletconnect.jsonrpc.JsonRpcResponse
 import com.trustwallet.walletconnect.models.*
 import com.trustwallet.walletconnect.models.binance.*
 import com.trustwallet.walletconnect.models.ethereum.WCEthereumSignMessage
@@ -15,8 +20,6 @@ import com.trustwallet.walletconnect.models.session.WCApproveSessionResponse
 import com.trustwallet.walletconnect.models.session.WCSession
 import com.trustwallet.walletconnect.models.session.WCSessionRequest
 import com.trustwallet.walletconnect.models.session.WCSessionUpdate
-import com.trustwallet.walletconnect.security.decrypt
-import com.trustwallet.walletconnect.security.encrypt
 import okhttp3.*
 import okio.ByteString
 import java.util.*
@@ -24,13 +27,11 @@ import java.util.*
 const val JSONRPC_VERSION = "2.0"
 const val WS_CLOSE_NORMAL = 1000
 
-class WCInteractor (
-    private val session: WCSession,
-    private val clientMeta: WCPeerMeta,
-    private val client: OkHttpClient,
-    builder: GsonBuilder = GsonBuilder()
+open class WCClient (
+    builder: GsonBuilder = GsonBuilder(),
+    private val httpClient: OkHttpClient
 ): WebSocketListener() {
-    private val TAG = "WCInteractor"
+    private val TAG = "WCClient"
 
     private val gson = builder
         .serializeNulls()
@@ -43,15 +44,32 @@ class WCInteractor (
         .create()
 
     private var socket: WebSocket? = null
-    private val clientId = UUID.randomUUID().toString()
-    private var peerId: String? = null
+
+    private val listeners: MutableSet<WebSocketListener> = mutableSetOf()
+
+    var session: WCSession? = null
+        private set
+
+    var peerMeta: WCPeerMeta? = null
+        private set
+
+    var peerId: String? = null
+        private set
+
+    var remotePeerId: String? = null
+        private set
+
+    var isConnected: Boolean = false
+        private set
+
     private var handshakeId: Long = -1
 
     var onFailure: (Throwable) -> Unit = { _ -> Unit}
     var onDisconnect: (code: Int, reason: String) -> Unit = { _, _ -> Unit }
     var onSessionRequest: (id: Long, peer: WCPeerMeta) -> Unit = { _, _ -> Unit }
     var onEthSign: (id: Long, message: WCEthereumSignMessage) -> Unit = { _, _ -> Unit }
-    var onEthTransaction: (id: Long, transaction: WCEthereumTransaction) -> Unit = { _, _ -> Unit }
+    var onEthSignTransaction: (id: Long, transaction: WCEthereumTransaction) -> Unit = { _, _ -> Unit }
+    var onEthSendTransaction: (id: Long, transaction: WCEthereumTransaction) -> Unit = { _, _ -> Unit }
     var onCustomRequest: (id: Long, payload: String) -> Unit = { _, _ -> Unit }
     var onBnbTrade: (id: Long, order: WCBinanceTradeOrder) -> Unit = { _, _ -> Unit }
     var onBnbCancel: (id: Long, order: WCBinanceCancelOrder) -> Unit = { _, _ -> Unit }
@@ -62,71 +80,85 @@ class WCInteractor (
 
     override fun onOpen(webSocket: WebSocket, response: Response) {
         Log.d(TAG, "<< websocket opened >>")
+        isConnected = true
 
+        listeners.forEach { it.onOpen(webSocket, response) }
+
+        val session = this.session ?: throw IllegalStateException("session can't be null on connection open")
+        val peerId = this.peerId ?: throw IllegalStateException("peerId can't be null on connection open")
         // The Session.topic channel is used to listen session request messages only.
         subscribe(session.topic)
-        // The clientId channel is used to listen to all messages sent to this client.
-        subscribe(clientId)
+        // The peerId channel is used to listen to all messages sent to this httpClient.
+        subscribe(peerId)
     }
 
     override fun onMessage(webSocket: WebSocket, text: String) {
+        var decrypted: String? = null
         try {
             Log.d(TAG, "<== message $text")
-            val message = gson.fromJson<WCSocketMessage>(text)
-            val encrypted = gson.fromJson<WCEncryptionPayload>(message.payload)
-            val payload = String(decrypt(encrypted, session.key.hexStringToByteArray()), Charsets.UTF_8)
-            Log.d(TAG, "<== decrypted $payload")
-
-            val request = gson.fromJson<JsonRpcRequest<JsonArray>>(payload, typeToken<JsonRpcRequest<JsonArray>>())
-            val method = request.method
-            if (method != null) {
-                handleRequest(request)
-            } else {
-                onCustomRequest(request.id, payload)
-            }
-        } catch (e: InvalidJsonRpcParamsException) {
-            invalidParams(e.requestId)
+            decrypted = decryptMessage(text)
+            Log.d(TAG, "<== decrypted $decrypted")
+            handleMessage(decrypted)
         } catch (e: Exception) {
             onFailure(e)
+        } finally {
+            listeners.forEach { it.onMessage(webSocket, decrypted ?: text) }
         }
     }
 
     override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+        resetState()
         onFailure(t)
+
+        listeners.forEach { it.onFailure(webSocket, t, response) }
     }
 
     override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
         Log.d(TAG,"<< websocket closed >>")
+
+        listeners.forEach { it.onClosed(webSocket, code, reason) }
     }
 
     override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
         Log.d(TAG,"<== pong")
+
+        listeners.forEach { it.onMessage(webSocket, bytes) }
     }
 
     override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
-        handshakeId = -1
-        peerId = null
+        Log.d(TAG,"<< closing socket >>")
+
+        resetState()
         onDisconnect(code, reason)
+
+        listeners.forEach { it.onClosing(webSocket, code, reason) }
     }
 
-    fun connect() {
+    fun connect(session: WCSession, peerMeta: WCPeerMeta, peerId: String = UUID.randomUUID().toString(), remotePeerId: String? = null) {
+        if (this.session != null && this.session?.topic != session.topic) {
+            killSession()
+        }
+
+        this.session = session
+        this.peerMeta = peerMeta
+        this.peerId = peerId
+        this.remotePeerId = remotePeerId
+
         val request = Request.Builder()
             .url(session.bridge)
             .build()
 
-        socket = client.newWebSocket(request, this)
+        socket = httpClient.newWebSocket(request, this)
     }
 
-    fun approveSesssion(accounts: List<String>, chainId: Int): Boolean {
-        if (handshakeId <= 0) {
-            throw InvalidSessionException()
-        }
+    fun approveSession(accounts: List<String>, chainId: Int): Boolean {
+        check(handshakeId > 0) { "handshakeId must be greater than 0 on session approve" }
 
         val result = WCApproveSessionResponse(
             chainId = chainId,
             accounts = accounts,
-            peerId = clientId,
-            peerMeta = clientMeta
+            peerId = peerId,
+            peerMeta = peerMeta
         )
         val response = JsonRpcResponse(
             id = handshakeId,
@@ -152,9 +184,7 @@ class WCInteractor (
     }
 
     fun rejectSession(message: String = "Session rejected"): Boolean {
-        if (handshakeId <= 0) {
-            throw InvalidSessionException()
-        }
+        check(handshakeId > 0) { "handshakeId must be greater than 0 on session reject" }
 
         val response = JsonRpcErrorResponse(
             id = handshakeId,
@@ -166,7 +196,8 @@ class WCInteractor (
     }
 
     fun killSession(): Boolean {
-        return updateSession(approved = false) && disconnect()
+        updateSession(approved = false)
+        return disconnect()
     }
 
     fun <T> approveRequest(id: Long, result: T): Boolean {
@@ -187,6 +218,13 @@ class WCInteractor (
         return encryptAndSend(gson.toJson(response))
     }
 
+    private fun decryptMessage(text: String): String {
+        val message = gson.fromJson<WCSocketMessage>(text)
+        val encrypted = gson.fromJson<WCEncryptionPayload>(message.payload)
+        val session = this.session ?: throw IllegalStateException("session can't be null on message receive")
+        return String(WCCipher.decrypt(encrypted, session.key.hexStringToByteArray()), Charsets.UTF_8)
+    }
+
     private fun invalidParams(id: Long): Boolean {
         val response = JsonRpcErrorResponse(
             id = id,
@@ -198,20 +236,34 @@ class WCInteractor (
         return encryptAndSend(gson.toJson(response))
     }
 
+    private fun handleMessage(payload: String) {
+        try {
+            val request = gson.fromJson<JsonRpcRequest<JsonArray>>(payload, typeToken<JsonRpcRequest<JsonArray>>())
+            val method = request.method
+            if (method != null) {
+                handleRequest(request)
+            } else {
+                onCustomRequest(request.id, payload)
+            }
+        } catch (e: InvalidJsonRpcParamsException) {
+            invalidParams(e.requestId)
+        }
+    }
+
     private fun handleRequest(request: JsonRpcRequest<JsonArray>) {
         when (request.method) {
             WCMethod.SESSION_REQUEST -> {
                 val param = gson.fromJson<List<WCSessionRequest>>(request.params)
                         .firstOrNull() ?: throw InvalidJsonRpcParamsException(request.id)
                 handshakeId = request.id
-                peerId = param.peerId
+                remotePeerId = param.peerId
                 onSessionRequest(request.id, param.peerMeta)
             }
             WCMethod.SESSION_UPDATE -> {
                 val param = gson.fromJson<List<WCSessionUpdate>>(request.params)
                         .firstOrNull() ?: throw InvalidJsonRpcParamsException(request.id)
                 if (!param.approved) {
-                    disconnect()
+                    killSession()
                 }
             }
             WCMethod.ETH_SIGN -> {
@@ -235,12 +287,12 @@ class WCInteractor (
             WCMethod.ETH_SIGN_TRANSACTION -> {
                 val param = gson.fromJson<List<WCEthereumTransaction>>(request.params)
                         .firstOrNull() ?: throw InvalidJsonRpcParamsException(request.id)
-                onEthTransaction(request.id, param)
+                onEthSignTransaction(request.id, param)
             }
             WCMethod.ETH_SEND_TRANSACTION ->{
                 val param = gson.fromJson<List<WCEthereumTransaction>>(request.params)
                         .firstOrNull() ?: throw InvalidJsonRpcParamsException(request.id)
-                onEthTransaction(request.id, param)
+                onEthSendTransaction(request.id, param)
             }
             WCMethod.BNB_SIGN -> {
                 try {
@@ -291,11 +343,12 @@ class WCInteractor (
 
     private fun encryptAndSend(result: String): Boolean {
         Log.d(TAG,"==> message $result")
-        val payload = gson.toJson(encrypt(result.toByteArray(Charsets.UTF_8), session.key.hexStringToByteArray()))
+        val session = this.session ?: throw IllegalStateException("session can't be null on message send")
+        val payload = gson.toJson(WCCipher.encrypt(result.toByteArray(Charsets.UTF_8), session.key.hexStringToByteArray()))
         val message = WCSocketMessage(
-            // Once the peerId is defined, all messages must be sent to this channel. The session.topic channel
+            // Once the remotePeerId is defined, all messages must be sent to this channel. The session.topic channel
             // will be used only to respond the session request message.
-            topic = peerId ?: session.topic,
+            topic = remotePeerId ?: session.topic,
             type = MessageType.PUB,
             payload = payload
         )
@@ -306,8 +359,25 @@ class WCInteractor (
     }
 
 
-    private fun disconnect(): Boolean {
+    fun disconnect(): Boolean {
         return socket?.close(WS_CLOSE_NORMAL, null) ?: false
+    }
+
+    fun addSocketListener(listener: WebSocketListener) {
+        listeners.add(listener)
+    }
+
+    fun removeSocketListener(listener: WebSocketListener) {
+        listeners.remove(listener)
+    }
+
+    private fun resetState() {
+        handshakeId = -1
+        isConnected = false
+        session = null
+        peerId = null
+        remotePeerId = null
+        peerMeta = null
     }
 }
 

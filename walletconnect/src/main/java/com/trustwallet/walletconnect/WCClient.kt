@@ -58,6 +58,9 @@ open class WCClient (
 
     var remotePeerId: String? = null
         private set
+    
+    var chainId: String? = null
+        private set
 
     var isConnected: Boolean = false
         private set
@@ -257,6 +260,7 @@ open class WCClient (
                         .firstOrNull() ?: throw InvalidJsonRpcParamsException(request.id)
                 handshakeId = request.id
                 remotePeerId = param.peerId
+                chainId = param.chainId
                 onSessionRequest(request.id, param.peerMeta)
             }
             WCMethod.SESSION_UPDATE -> {

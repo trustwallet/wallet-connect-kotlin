@@ -58,6 +58,9 @@ open class WCClient (
 
     var remotePeerId: String? = null
         private set
+    
+    var chainId: String? = null
+        private set
 
     var isConnected: Boolean = false
         private set
@@ -155,7 +158,7 @@ open class WCClient (
         check(handshakeId > 0) { "handshakeId must be greater than 0 on session approve" }
 
         val result = WCApproveSessionResponse(
-            chainId = chainId,
+            chainId = this.chainId?.toIntOrNull() ?: chainId,
             accounts = accounts,
             peerId = peerId,
             peerMeta = peerMeta
@@ -175,7 +178,7 @@ open class WCClient (
             params = listOf(
                 WCSessionUpdate(
                     approved = approved,
-                    chainId = chainId,
+                    chainId = this.chainId?.toIntOrNull() ?: chainId,
                     accounts = accounts
                 )
             )
@@ -257,6 +260,7 @@ open class WCClient (
                         .firstOrNull() ?: throw InvalidJsonRpcParamsException(request.id)
                 handshakeId = request.id
                 remotePeerId = param.peerId
+                chainId = param.chainId
                 onSessionRequest(request.id, param.peerMeta)
             }
             WCMethod.SESSION_UPDATE -> {

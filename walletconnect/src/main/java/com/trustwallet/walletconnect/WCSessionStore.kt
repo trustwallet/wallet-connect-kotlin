@@ -6,6 +6,7 @@ import java.util.*
 
 data class WCSessionStoreItem(
         val session: WCSession,
+        val chainId: Int,
         val peerId: String,
         val remotePeerId: String,
         val remotePeerMeta: WCPeerMeta,

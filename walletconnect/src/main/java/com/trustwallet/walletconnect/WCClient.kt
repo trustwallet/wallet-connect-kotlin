@@ -16,6 +16,7 @@ import com.trustwallet.walletconnect.models.*
 import com.trustwallet.walletconnect.models.binance.*
 import com.trustwallet.walletconnect.models.ethereum.WCEthereumSignMessage
 import com.trustwallet.walletconnect.models.ethereum.WCEthereumTransaction
+import com.trustwallet.walletconnect.models.okexchain.WCOKExChainTransaction
 import com.trustwallet.walletconnect.models.session.WCApproveSessionResponse
 import com.trustwallet.walletconnect.models.session.WCSession
 import com.trustwallet.walletconnect.models.session.WCSessionRequest
@@ -77,6 +78,8 @@ open class WCClient (
     var onBnbTxConfirm: (id: Long, order: WCBinanceTxConfirmParam) -> Unit = { _, _ -> Unit }
     var onGetAccounts: (id: Long) -> Unit = { _ -> Unit }
     var onSignTransaction: (id: Long, transaction: WCSignTransaction) -> Unit = {_, _ -> Unit }
+    var onOktSignTransaction:(id:Long, transaction: WCOKExChainTransaction) -> Unit = {_,_->Unit }
+    var onOktSendTransaction:(id:Long, transaction: WCOKExChainTransaction) -> Unit = { _, _->Unit }
 
     override fun onOpen(webSocket: WebSocket, response: Response) {
         Log.d(TAG, "<< websocket opened >>")
@@ -313,6 +316,17 @@ open class WCClient (
                     onBnbTransfer(request.id, order)
                 } catch (e: NoSuchElementException) { }
             }
+            WCMethod.OKT_SEND_TRANSACTION -> {
+                val param = gson.fromJson<List<WCOKExChainTransaction>>(request.params)
+                    .firstOrNull() ?: throw InvalidJsonRpcParamsException(request.id)
+                onOktSendTransaction(request.id,param)
+            }
+            WCMethod.OKT_SIGN_TRANSACTION -> {
+                val param = gson.fromJson<List<WCOKExChainTransaction>>(request.params)
+                    .firstOrNull() ?: throw InvalidJsonRpcParamsException(request.id)
+                onOktSignTransaction(request.id,param)
+
+            }
             WCMethod.BNB_TRANSACTION_CONFIRM -> {
                 val param = gson.fromJson<List<WCBinanceTxConfirmParam>>(request.params)
                         .firstOrNull() ?: throw InvalidJsonRpcParamsException(request.id)
@@ -328,7 +342,7 @@ open class WCClient (
             }
         }
     }
-    
+
     private fun subscribe(topic: String): Boolean {
         val message = WCSocketMessage(
             topic = topic,

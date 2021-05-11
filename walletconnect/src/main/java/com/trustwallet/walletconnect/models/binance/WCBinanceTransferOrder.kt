@@ -2,7 +2,6 @@ package com.trustwallet.walletconnect.models.binance
 
 import com.github.salomonbrys.kotson.*
 import com.google.gson.JsonObject
-import com.trustwallet.walletconnect.models.ethereum.WCEthereumTransaction
 
 class WCBinanceTransferOrder(
     account_number: String,
@@ -49,14 +48,4 @@ val transferOrderSerializer = jsonSerializer<WCBinanceTransferOrder.Message> {
     jsonObject.addProperty(WCBinanceTransferOrder.MessageKey.INPUTS.key, it.context.serialize(it.src.inputs))
     jsonObject.addProperty(WCBinanceTransferOrder.MessageKey.OUTPUTS.key, it.context.serialize(it.src.outputs))
     jsonObject
-}
-
-val ethTransactionSerializer = jsonDeserializer<List<WCEthereumTransaction>> {
-    val array = mutableListOf<WCEthereumTransaction>()
-    it.json.asJsonArray.forEach { tx ->
-        if (tx.isJsonObject) {
-            array.add(it.context.deserialize(tx))
-        }
-    }
-    array
 }

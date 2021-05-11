@@ -41,6 +41,7 @@ open class WCClient (
         .registerTypeAdapter(tradeOrderDeserializer)
         .registerTypeAdapter(transferOrderSerializer)
         .registerTypeAdapter(transferOrderDeserializer)
+        .registerTypeAdapter(ethTransactionSerializer)
         .create()
 
     private var socket: WebSocket? = null

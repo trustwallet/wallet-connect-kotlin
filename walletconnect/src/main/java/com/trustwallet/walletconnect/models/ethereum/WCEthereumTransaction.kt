@@ -1,5 +1,7 @@
 package com.trustwallet.walletconnect.models.ethereum
 
+import com.github.salomonbrys.kotson.jsonDeserializer
+
 data class WCEthereumTransaction(
     val from: String,
     val to: String?,
@@ -10,3 +12,13 @@ data class WCEthereumTransaction(
     val value: String?,
     val data: String
 )
+
+val ethTransactionSerializer = jsonDeserializer<List<WCEthereumTransaction>> {
+    val array = mutableListOf<WCEthereumTransaction>()
+    it.json.asJsonArray.forEach { tx ->
+        if (tx.isJsonObject) {
+            array.add(it.context.deserialize(tx))
+        }
+    }
+    array
+}

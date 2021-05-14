@@ -34,5 +34,12 @@ enum class WCMethod {
     GET_ACCOUNTS,
 
     @SerializedName("trust_signTransaction")
-    SIGN_TRANSACTION;
+    SIGN_TRANSACTION,
+
+    @SerializedName("okt_signTransaction")
+    OKT_SIGN_TRANSACTION,
+
+    @SerializedName("okt_sendTransaction")
+    OKT_SEND_TRANSACTION;
+
 }

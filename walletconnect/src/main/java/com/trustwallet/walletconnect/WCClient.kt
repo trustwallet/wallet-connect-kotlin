@@ -113,7 +113,6 @@ open class WCClient (
     }
 
     override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-        resetState()
         onFailure(t)
 
         listeners.forEach { it.onFailure(webSocket, t, response) }

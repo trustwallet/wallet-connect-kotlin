@@ -5,7 +5,7 @@
 [WalletConnect](https://walletconnect.org/) Kotlin SDK, implements 1.0.0 websocket based protocol.
 
 ## Demo
-![Demo](docs/demo.gif)
+<img src="docs/demo.gif" width="250">
 
 ## Features
 

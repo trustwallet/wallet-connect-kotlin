@@ -158,9 +158,9 @@ open class WCClient (
 
     fun approveSession(accounts: List<String>, chainId: Int): Boolean {
         check(handshakeId > 0) { "handshakeId must be greater than 0 on session approve" }
-
+        this.chainId = chainId.toString()
         val result = WCApproveSessionResponse(
-            chainId = this.chainId?.toIntOrNull() ?: chainId,
+            chainId = chainId,
             accounts = accounts,
             peerId = peerId,
             peerMeta = peerMeta
@@ -180,7 +180,7 @@ open class WCClient (
             params = listOf(
                 WCSessionUpdate(
                     approved = approved,
-                    chainId = this.chainId?.toIntOrNull() ?: chainId,
+                    chainId = chainId ?: this.chainId?.toIntOrNull(),
                     accounts = accounts
                 )
             )

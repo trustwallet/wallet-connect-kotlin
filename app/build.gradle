@@ -39,5 +39,5 @@ dependencies {
     implementation "com.google.code.gson:gson:2.8.8"
 
     implementation "com.github.TrustWallet:wallet-connect-kotlin:1.5.4"
-    implementation "com.trustwallet:wallet-core:2.6.33"
+    implementation "com.trustwallet:wallet-core:2.6.3"
 }

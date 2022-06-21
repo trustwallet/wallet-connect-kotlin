@@ -10,11 +10,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - [Sample app](app)
-- Update [README.md](README.md)
+- [CHANGELOG.md](CHANGELOG.md)
 - `ViewBinding`
 
 ### Changed
 
+- [README.md](README.md)
 - Upgrade Kotlin, Gradle, all dependencies
 - sourceCompatibility/targetCompatibility Java 8 -> Java 11
 - (sample) app module depends on library module directly instead of using Jitpack

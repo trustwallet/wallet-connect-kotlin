@@ -40,5 +40,5 @@ dependencies {
     implementation "com.squareup.okhttp3:okhttp:4.9.3"
     implementation "com.google.code.gson:gson:2.9.0"
 
-    implementation "com.trustwallet:wallet-core:2.6.33"
+    implementation "com.trustwallet:wallet-core:2.9.5"
 }

@@ -25,6 +25,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `appcompat-v7` dependency from library
 - `kotlin android extensions`
 
+### Fixed
+
+- `trustwallet:wallet-core` dep. version in sample app
+
 ## [1.5.4] - 2021-11-11
 
 ### Changed

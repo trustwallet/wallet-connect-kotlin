@@ -38,6 +38,12 @@ class MainActivity : AppCompatActivity() {
 
     private var remotePeerMeta: WCPeerMeta? = null
 
+    companion object {
+        init {
+            System.loadLibrary("TrustWalletCore")
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -177,9 +183,4 @@ class MainActivity : AppCompatActivity() {
             .toByteArray()
     }
 
-    companion object {
-        init {
-            System.loadLibrary("TrustWalletCore")
-        }
-    }
 }

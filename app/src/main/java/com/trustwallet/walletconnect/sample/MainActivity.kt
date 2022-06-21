@@ -16,13 +16,14 @@ import com.trustwallet.walletconnect.models.binance.WCBinanceTxConfirmParam
 import com.trustwallet.walletconnect.models.ethereum.WCEthereumSignMessage
 import com.trustwallet.walletconnect.models.ethereum.WCEthereumTransaction
 import com.trustwallet.walletconnect.models.session.WCSession
-import kotlinx.android.synthetic.main.activity_main.*
-import kotlinx.android.synthetic.main.activity_main.view.*
+import com.trustwallet.walletconnect.sample.databinding.ActivityMainBinding
 import okhttp3.OkHttpClient
 import wallet.core.jni.CoinType
 import wallet.core.jni.PrivateKey
 
 class MainActivity : AppCompatActivity() {
+
+    private lateinit var binding: ActivityMainBinding
 
     private val wcClient by lazy {
         WCClient(GsonBuilder(), OkHttpClient())
@@ -39,9 +40,10 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
-        addressInput.editText?.setText(address)
+        binding.addressInput.editText?.setText(address)
         wcClient.onDisconnect = { _, _ -> onDisconnect() }
         wcClient.onFailure = { t -> onFailure(t) }
         wcClient.onSessionRequest = { _, peer -> onSessionRequest(peer) }
@@ -62,9 +64,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupConnectButton() {
         runOnUiThread {
-            connectButton.text = "Connect"
-            connectButton.setOnClickListener {
-                connect(uriInput.editText?.text?.toString() ?: return@setOnClickListener)
+            binding.connectButton.text = "Connect"
+            binding.connectButton.setOnClickListener {
+                connect(binding.uriInput.editText?.text?.toString() ?: return@setOnClickListener)
             }
         }
     }
@@ -84,11 +86,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     fun approveSession() {
-        val address = addressInput.editText?.text?.toString() ?: address
-        val chainId = chainInput.editText?.text?.toString()?.toIntOrNull() ?: 1
+        val address = binding.addressInput.editText?.text?.toString() ?: address
+        val chainId = binding.chainInput.editText?.text?.toString()?.toIntOrNull() ?: 1
         wcClient.approveSession(listOf(address), chainId)
-        connectButton.text = "Kill Session"
-        connectButton.setOnClickListener {
+        binding.connectButton.text = "Kill Session"
+        binding.connectButton.setOnClickListener {
             disconnect()
         }
     }
@@ -158,8 +160,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun onGetAccounts(id: Long) {
         val account = WCAccount(
-            chainInput.editText?.text?.toString()?.toIntOrNull() ?: 1,
-            addressInput.editText?.text?.toString() ?: address,
+            binding.chainInput.editText?.text?.toString()?.toIntOrNull() ?: 1,
+            binding.addressInput.editText?.text?.toString() ?: address,
         )
         wcClient.approveRequest(id, account)
     }

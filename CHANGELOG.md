@@ -11,6 +11,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - [Sample app](app)
 - Update [README.md](README.md)
+- `ViewBinding`
 
 ### Changed
 
@@ -21,6 +22,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Removed
 
 - jcenter()
+- `appcompat-v7` dependency from library
+- `kotlin android extensions`
 
 ## [1.5.4] - 2021-11-11
 

@@ -332,6 +332,7 @@ open class WCClient (
                     .firstOrNull() ?: throw InvalidJsonRpcParamsException(request.id)
                 onSignTransaction(request.id, param)
             }
+            null -> TODO()
         }
     }
     

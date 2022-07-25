@@ -34,5 +34,8 @@ enum class WCMethod {
     GET_ACCOUNTS,
 
     @SerializedName("trust_signTransaction")
-    SIGN_TRANSACTION;
+    SIGN_TRANSACTION,
+
+    @SerializedName("wallet_switchEthereumChain")
+    WALLET_SWITCH_NETWORK;
 }

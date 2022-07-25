@@ -17,10 +17,7 @@ import com.trustwallet.walletconnect.models.binance.*
 import com.trustwallet.walletconnect.models.ethereum.WCEthereumSignMessage
 import com.trustwallet.walletconnect.models.ethereum.WCEthereumTransaction
 import com.trustwallet.walletconnect.models.ethereum.ethTransactionSerializer
-import com.trustwallet.walletconnect.models.session.WCApproveSessionResponse
-import com.trustwallet.walletconnect.models.session.WCSession
-import com.trustwallet.walletconnect.models.session.WCSessionRequest
-import com.trustwallet.walletconnect.models.session.WCSessionUpdate
+import com.trustwallet.walletconnect.models.session.*
 import okhttp3.*
 import okio.ByteString
 import java.util.*
@@ -82,6 +79,7 @@ open class WCClient (
     var onBnbTxConfirm: (id: Long, order: WCBinanceTxConfirmParam) -> Unit = { _, _ -> Unit }
     var onGetAccounts: (id: Long) -> Unit = { _ -> Unit }
     var onSignTransaction: (id: Long, transaction: WCSignTransaction) -> Unit = {_, _ -> Unit }
+    var onWalletChangeNetwork: (id: Long, chainId: Int) -> Unit = {_, _ -> Unit }
 
     override fun onOpen(webSocket: WebSocket, response: Response) {
         Log.d(TAG, "<< websocket opened >>")
@@ -185,6 +183,7 @@ open class WCClient (
                 )
             )
         )
+        this.chainId = chainId.toString()
         return encryptAndSend(gson.toJson(request))
     }
 
@@ -331,6 +330,12 @@ open class WCClient (
                 val param = gson.fromJson<List<WCSignTransaction>>(request.params)
                     .firstOrNull() ?: throw InvalidJsonRpcParamsException(request.id)
                 onSignTransaction(request.id, param)
+            }
+            WCMethod.WALLET_SWITCH_NETWORK -> {
+                val param = gson.fromJson<List<WCChangeNetwork>>(request.params)
+                    .firstOrNull() ?: throw InvalidJsonRpcParamsException(request.id)
+                val chainId = param.chainIdHex.removePrefix("0x").toInt(16)
+                onWalletChangeNetwork(request.id, chainId)
             }
         }
     }

@@ -37,5 +37,8 @@ enum class WCMethod {
     SIGN_TRANSACTION,
 
     @SerializedName("wallet_switchEthereumChain")
-    WALLET_SWITCH_NETWORK;
+    WALLET_SWITCH_NETWORK,
+
+    @SerializedName("wallet_addEthereumChain")
+    WALLET_ADD_NETWORK;
 }

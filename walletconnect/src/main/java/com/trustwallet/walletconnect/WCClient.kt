@@ -80,6 +80,7 @@ open class WCClient (
     var onGetAccounts: (id: Long) -> Unit = { _ -> Unit }
     var onSignTransaction: (id: Long, transaction: WCSignTransaction) -> Unit = {_, _ -> Unit }
     var onWalletChangeNetwork: (id: Long, chainId: Int) -> Unit = {_, _ -> Unit }
+    var onWalletAddNetwork: (id: Long, network: WCAddNetwork) -> Unit = {_, _ -> Unit }
 
     override fun onOpen(webSocket: WebSocket, response: Response) {
         Log.d(TAG, "<< websocket opened >>")
@@ -336,6 +337,11 @@ open class WCClient (
                     .firstOrNull() ?: throw InvalidJsonRpcParamsException(request.id)
                 val chainId = param.chainIdHex.removePrefix("0x").toInt(16)
                 onWalletChangeNetwork(request.id, chainId)
+            }
+            WCMethod.WALLET_ADD_NETWORK -> {
+                val param = gson.fromJson<List<WCAddNetwork>>(request.params)
+                    .firstOrNull() ?: throw InvalidJsonRpcParamsException(request.id)
+                onWalletAddNetwork(request.id, param)
             }
         }
     }

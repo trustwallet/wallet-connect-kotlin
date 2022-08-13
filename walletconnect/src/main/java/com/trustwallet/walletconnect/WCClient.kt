@@ -344,6 +344,7 @@ open class WCClient (
                     .firstOrNull() ?: throw InvalidJsonRpcParamsException(request.id)
                 onWalletAddNetwork(request.id, param)
             }
+            null -> TODO()
         }
     }
     
